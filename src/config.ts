@@ -27,6 +27,8 @@ export const NETWORKS = {
     reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
     // USA₮ fee-currency adapter (registered in FeeCurrencyDirectory 0x15F3…6276): pay gas in USA₮ when the wallet has no CELO.
     feeCurrency: "0x0357EE22278c922e1D36cFe6b899269b161880C4",
+    // Plain USD₮ (Tether, e.g. withdrawn from MEXC on Celo) + its fee adapter. Verified on-chain: adapter.getAdaptedToken() = USD₮.
+    usdt: { symbol: "USD₮", address: "0x48065fbBE25f71C9282ddf5e1cD6D6A887483D5e", decimals: 6, feeCurrency: "0x0E2A3e05bc9A16F5292A6170456A710cb89C6f72" },
   },
 } as const;
 
@@ -34,8 +36,13 @@ export const NETWORKS = {
 export const MAINNET_FAUCET = "https://cloud.google.com/application/web3/faucet/celo/mainnet";
 export const TESTNET_FAUCET = "https://faucet.circle.com";
 /** Fee currency to use on a network (undefined → pay gas in CELO). */
-export const feeCurrencyFor = (n: { chainId: number } & Record<string, any>, celoBalance: bigint): `0x${string}` | undefined =>
-  n.chainId === 42220 && celoBalance === 0n && n.feeCurrency ? (n.feeCurrency as `0x${string}`) : undefined;
+/** With 0 CELO on mainnet: pay gas in USA₮ if held, else plain USD₮ (MEXC withdrawals). */
+export const feeCurrencyFor = (n: { chainId: number } & Record<string, any>, celoBalance: bigint, usatBalance = 1n, usdtBalance = 0n): `0x${string}` | undefined => {
+  if (n.chainId !== 42220 || celoBalance > 0n || !n.feeCurrency) return undefined;
+  if (usatBalance > 0n) return n.feeCurrency as `0x${string}`;
+  if (usdtBalance > 0n && n.usdt) return n.usdt.feeCurrency as `0x${string}`;
+  return n.feeCurrency as `0x${string}`;
+};
 
 export function net(n?: string) {
   return NETWORKS[(n === "mainnet" ? "mainnet" : "testnet") as Net];

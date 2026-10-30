@@ -4,6 +4,7 @@ import { privateKeyToAccount } from "viem/accounts";
 import { tagClient } from "./attribution";
 import { net, feeCurrencyFor } from "./config";
 import { celo } from "viem/chains";
+import { erc20Abi } from "./abi";
 
 export const N = net(process.env.NETWORK);
 export const API = process.env.API_URL || "https://agent-bounty-board.pages.dev/api";
@@ -17,8 +18,10 @@ export function wallet(pk: string) {
   return tagClient(w, N.chainId); // ERC-8021 tag on Celo mainnet only
 }
 export const tx = (h: string) => `${N.explorer}/tx/${h}`;
-/** Gas options: on mainnet with 0 CELO, pay gas in USA₮ via its fee-currency adapter (CIP-64). */
+/** Gas options: on mainnet with 0 CELO, pay gas in USA₮ (or plain USD₮) via its fee-currency adapter (CIP-64). */
 export async function gasOpts(address: `0x${string}`) {
-  const fc = feeCurrencyFor(N as any, await publicClient.getBalance({ address }));
+  if (N.chainId !== 42220) return {};
+  const M: any = N; const bal = (t: string) => publicClient.readContract({ address: t as `0x${string}`, abi: erc20Abi, functionName: "balanceOf", args: [address] }).catch(() => 0n) as Promise<bigint>;
+  const fc = feeCurrencyFor(M, await publicClient.getBalance({ address }), await bal(M.token.address), await bal(M.usdt.address));
   return fc ? { feeCurrency: fc } : {};
 }

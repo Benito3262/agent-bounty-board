@@ -35,3 +35,8 @@ test("revision: poster feedback reaches the LLM prompt (job #4 regression)", asy
     assert.match(d.markdown, /^revised/);
   } finally { globalThis.fetch = orig; }
 });
+
+test("gas falls back to plain USD₮ adapter when wallet holds USD₮ but no USA₮ (MEXC funding)", () => {
+  assert.equal(feeCurrencyFor(NETWORKS.mainnet, 0n, 0n, 5_000_000n), "0x0E2A3e05bc9A16F5292A6170456A710cb89C6f72");
+  assert.equal(feeCurrencyFor(NETWORKS.mainnet, 0n, 1n, 5_000_000n), "0x0357EE22278c922e1D36cFe6b899269b161880C4");
+});

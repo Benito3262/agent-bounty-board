@@ -8,7 +8,7 @@ import { createPublicClient, http, getAddress, isAddress, verifyMessage, parseEv
 import { net, CATEGORIES, claimMsg, deliverMsg, bidMsg, acceptBidMsg, rejectMsg, sha256hex } from "../../src/config";
 import { identityAbi, reputationAbi, erc20Abi } from "../../src/abi";
 
-type Env = { DB: D1Database; NETWORK?: string; X402_API_KEY: string; ATTRIBUTION_TAG?: string };
+type Env = { DB: D1Database; NETWORK?: string; X402_API_KEY: string; ATTRIBUTION_TAG?: string; REOWN_PROJECT_ID?: string };
 const BUY_PAYTO = "0x20faAca5F980E29639A0FCC6dcA6988E18ed333B"; // buy gateway payTo (same on Celo + Celo Sepolia)
 const now = () => Math.floor(Date.now() / 1000);
 
@@ -19,7 +19,7 @@ const pub = (j: any) => { const { result, ...rest } = j; return { ...rest, purch
 
 app.get("/config", (c) => {
   const n = net(c.env.NETWORK);
-  return c.json({ network: c.env.NETWORK || "testnet", ...n, categories: CATEGORIES, attributionTag: c.env.ATTRIBUTION_TAG || null });
+  return c.json({ network: c.env.NETWORK || "testnet", ...n, categories: CATEGORIES, attributionTag: c.env.ATTRIBUTION_TAG || null, reownProjectId: c.env.REOWN_PROJECT_ID || null });
 });
 
 app.get("/jobs", async (c) => {

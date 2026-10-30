@@ -11,6 +11,7 @@ import DOMPurify from "dompurify";
 import { reputationAbi, erc20Abi } from "../src/abi";
 import { acceptBidMsg, rejectMsg, MAINNET_FAUCET, TESTNET_FAUCET } from "../src/config";
 import { suffixFor } from "../src/attribution";
+import { DEEP_LINKS, MANUAL, isMobile, isIOS } from "./wallets";
 
 const API = "/api";
 const $ = (s: string) => document.querySelector(s) as HTMLElement;
@@ -20,12 +21,26 @@ const toast = (m: string, bad = false) => { const t = document.createElement("di
 const isMiniPay = !!(window as any).ethereum?.isMiniPay;
 
 let CFG: any; let chain: typeof celo | typeof celoSepolia;
-const wagmi = createConfig({
-  chains: [celoSepolia, celo],
-  connectors: [injected({ shimDisconnect: true })],
-  multiInjectedProviderDiscovery: true, // EIP-6963: every installed wallet extension shows up
-  transports: { [celoSepolia.id]: http(), [celo.id]: http() },
-});
+// wagmi persists the last-used connector in localStorage and reconnects it on reload; it also listens to
+// accountsChanged / chainChanged / disconnect on the provider and updates state (we re-render via watchAccount).
+let wagmi = mkConfig([]);
+function mkConfig(extra: any[]) {
+  return createConfig({
+    chains: [celoSepolia, celo],
+    connectors: [injected({ shimDisconnect: true }), ...extra],
+    multiInjectedProviderDiscovery: true, // EIP-6963: MetaMask, Rabby, Coinbase, OKX, Brave, Trust, Bitget extensions, each with its icon
+    transports: { [celoSepolia.id]: http(), [celo.id]: http() },
+  });
+}
+// WalletConnect slot: enabled only when REOWN_PROJECT_ID is set on the deployment (served via /api/config).
+async function maybeWalletConnect() {
+  if (!CFG.reownProjectId) return;
+  try {
+    const mod = "https://esm.sh/@wagmi/connectors@5?bundle-deps&exports=walletConnect";
+    const { walletConnect } = await import(/* @vite-ignore */ mod);
+    wagmi = mkConfig([walletConnect({ projectId: CFG.reownProjectId, showQrModal: true, metadata: { name: "Agent Bounty Board", description: "Hire AI agents, pay in USA₮ on Celo", url: location.origin, icons: [location.origin + "/brand/icon-512.png"] } })]);
+  } catch (e) { console.warn("WalletConnect unavailable", e); }
+}
 const fmt = (v: any) => formatUnits(BigInt(v || 0), CFG.token.decimals);
 const short = (a: string) => a ? a.slice(0, 6) + "…" + a.slice(-4) : "";
 const tx = (h: string) => h ? `<a href="${CFG.explorer}/tx/${h}" target="_blank">${h.slice(0, 10)}…</a>` : "";
@@ -46,19 +61,33 @@ async function doConnect(connector: any) {
   try { await connect(wagmi, { connector }); } catch (e: any) { if (!/already connected/i.test(e.message)) throw e; }
   await ensureChain().catch((e) => toast(`Please switch your wallet to ${chain.name}: ${esc(e.shortMessage || e.message)}`, true));
 }
+const here = () => location.href.split("#")[0] + (location.hash || "");
 function openWalletPicker(): Promise<void> {
   return new Promise((done) => {
-    const list = getConnectors(wagmi).filter((c) => c.id !== "injected" || (window as any).ethereum);
-    const m = document.createElement("div"); m.className = "modal";
-    m.innerHTML = `<div class="card"><div class="row"><h3>Connect a wallet</h3><button class="sec" data-x>✕</button></div>
-      ${list.map((c, i) => `<button class="wallet" data-i="${i}">${c.icon ? `<img src="${esc(c.icon)}">` : "🔌"} ${esc(c.id === "injected" ? "Browser wallet (MiniPay / Valora / injected)" : c.name)}</button>`).join("") || ""}
-      ${!list.length ? `<p class="mut">No wallet found in this browser. On mobile open this page inside <b>MiniPay</b> or <b>Valora</b>'s dApp browser; on desktop install <a href="https://metamask.io" target="_blank">MetaMask</a>.</p>` : ""}
-      <p class="mut">WalletConnect QR is not enabled on this deployment (needs a Reown project ID).</p></div>`;
+    const all = getConnectors(wagmi);
+    // Prefer EIP-6963 announced wallets (real names + icons); show bare "injected" only if nothing announced.
+    const named = all.filter((c) => c.id !== "injected" && c.type !== "walletConnect");
+    const inj = (window as any).ethereum ? all.filter((c) => c.id === "injected") : [];
+    const list = [...named, ...(named.length ? [] : inj), ...all.filter((c) => c.type === "walletConnect")];
+    const mobile = isMobile(); const injectedHere = !!(window as any).ethereum;
+    const m = document.createElement("div"); m.className = "modal"; m.setAttribute("role", "dialog");
+    const btn = (i: number, c: any) => `<button class="wallet" data-i="${i}">${c.icon ? `<img src="${esc(c.icon)}" alt="">` : `<span class="wi">🔌</span>`} <span>${esc(c.type === "walletConnect" ? "WalletConnect (QR / any wallet)" : c.id === "injected" ? (isMiniPay ? "MiniPay" : "Browser wallet") : c.name)}</span></button>`;
+    const deep = DEEP_LINKS.map((d) => `<a class="wallet" href="${esc(d.href(here()))}" rel="noopener"><img src="${d.icon}" alt=""> <span>Open in ${esc(d.name)}</span></a>`).join("");
+    m.innerHTML = `<div class="card sheet"><div class="row"><h3>Connect a wallet</h3><button class="sec x" data-x aria-label="Close">✕</button></div>
+      ${list.length ? `<div class="mut">${mobile ? "Detected in this app" : "Detected in this browser"}</div>${list.map((c, i) => btn(i, c)).join("")}` : ""}
+      ${mobile && !injectedHere ? `<div class="mut" style="margin-top:8px">Phone browsers can't hold a wallet. Open this page inside your wallet app:</div>${deep}
+        <div class="mut" style="margin-top:8px">${MANUAL.map((x) => `<b>${x.name}:</b> ${x.how}`).join("<br>")}</div>
+        <button class="sec copy" data-copy>Copy link</button>` : ""}
+      ${!mobile && !list.length ? `<p class="mut">No wallet extension found. Install one — <a href="https://metamask.io/download/" target="_blank">MetaMask</a>, <a href="https://rabby.io" target="_blank">Rabby</a>, <a href="https://www.coinbase.com/wallet/downloads" target="_blank">Coinbase Wallet</a>, <a href="https://www.okx.com/web3" target="_blank">OKX</a> — then reload. On a phone, open this site in MiniPay, Valora, MetaMask or Trust.</p>` : ""}
+      ${!CFG.reownProjectId && !mobile ? `<p class="mut small">WalletConnect QR: not enabled on this deployment.</p>` : ""}
+      ${isIOS() && !injectedHere ? `<p class="mut small">iPhone tip: if a link opens the App Store, install the wallet then tap the link again.</p>` : ""}</div>`;
     document.body.append(m);
     const close = () => { m.remove(); done(); };
     m.querySelector("[data-x]")!.addEventListener("click", close);
+    m.addEventListener("click", (ev) => { if (ev.target === m) close(); });
+    m.querySelector("[data-copy]")?.addEventListener("click", async () => { try { await navigator.clipboard.writeText(here()); toast("Link copied — paste it in your wallet's browser"); } catch { prompt("Copy this link:", here()); } });
     m.querySelectorAll<HTMLButtonElement>("[data-i]").forEach((b) => b.addEventListener("click", async () => {
-      try { await doConnect(list[+b.dataset.i!]); } catch (e: any) { toast(esc(e.shortMessage || e.message), true); } close();
+      try { await doConnect(list[+b.dataset.i!]); } catch (e: any) { toast(friendly(e.shortMessage || e.message), true); } close();
     }));
   });
 }
@@ -189,7 +218,7 @@ async function detail(id: number) {
 async function agents() {
   const a: any[] = await fetch(API + "/leaderboard").then((r) => r.json());
   $("#app").innerHTML = `<div class="card"><h2>Agent leaderboard</h2><p class="mut">Reputation read live from the ERC-8004 Reputation Registry on ${chain.name}.</p>
-    <table><tr><th>Agent</th><th>Reputation</th><th>Ratings</th><th>Jobs</th><th>Earned</th></tr>${a.map((x) => `<tr><td><b>${esc(x.name)}</b> #${x.agent_id}<div class="mut">${short(x.owner)}</div></td><td>${x.reputation ?? "–"}</td><td>${x.feedbackCount}</td><td>${x.jobsDone}</td><td>${fmt(x.earned)} ${CFG.token.symbol}</td></tr>`).join("")}</table></div>`;
+    <div class="lb"><table><tr><th>Agent</th><th>Reputation</th><th>Ratings</th><th>Jobs</th><th>Earned</th></tr>${a.map((x) => `<tr><td><b>${esc(x.name)}</b> #${x.agent_id}<div class="mut">${short(x.owner)}</div></td><td>${x.reputation ?? "–"}</td><td>${x.feedbackCount}</td><td>${x.jobsDone}</td><td>${fmt(x.earned)} ${CFG.token.symbol}</td></tr>`).join("")}</table></div></div>`;
 }
 function onboarding() {
   if (localStorage.getItem("onboarded")) return "";
@@ -222,6 +251,7 @@ async function route() {
 
 (async () => {
   CFG = await fetch(API + "/config").then((r) => r.json());
+  await maybeWalletConnect();
   chain = CFG.chainId === celo.id ? celo : celoSepolia;
   $("#net").innerHTML = `Network: <b>${chain.name}</b> · payments in ${CFG.token.symbol}${isMiniPay ? " · MiniPay detected" : ""}`;
   watchAccount(wagmi, { onChange: () => { renderWallet(); route(); } });

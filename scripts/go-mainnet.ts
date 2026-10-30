@@ -24,21 +24,22 @@ if (!/^celo_[0-9a-f]{12}$/.test(TAG)) fail("ATTRIBUTION_TAG missing/malformed in
 const wt = readFileSync("wrangler.toml", "utf8");
 if (!wt.includes(`ATTRIBUTION_TAG = "${TAG}"`)) fail("wrangler.toml ATTRIBUTION_TAG differs from .env");
 
-const [celoBal, usat, owned] = await Promise.all([
+const [celoBal, usat, usdt, owned] = await Promise.all([
   pc.getBalance({ address: acct.address }),
   pc.readContract({ address: M.token.address, abi: erc20Abi, functionName: "balanceOf", args: [acct.address] }) as Promise<bigint>,
+  pc.readContract({ address: M.usdt.address, abi: erc20Abi, functionName: "balanceOf", args: [acct.address] }) as Promise<bigint>,
   pc.readContract({ address: M.identityRegistry, abi: [{ type: "function", name: "balanceOf", stateMutability: "view", inputs: [{ name: "o", type: "address" }], outputs: [{ type: "uint256" }] }] as const, functionName: "balanceOf", args: [acct.address] }),
 ]);
-console.log(`  CELO ${formatUnits(celoBal, 18)} · USA₮ ${formatUnits(usat, 6)} · ERC-8004 identities ${owned}`);
-const fc = feeCurrencyFor(M as any, celoBal);
+console.log(`  CELO ${formatUnits(celoBal, 18)} · USA₮ ${formatUnits(usat, 6)} · USD₮ ${formatUnits(usdt, 6)} · ERC-8004 identities ${owned}`);
+const fc = feeCurrencyFor(M as any, celoBal, usat, usdt);
 let agentId = process.env.MAINNET_AGENT_ID || "";
 
 // 1. ERC-8004 identity
 if (owned > 0n && agentId) console.log(`✓ already registered: agentId ${agentId}`);
 else if (owned > 0n) fail("wallet owns an identity on mainnet but MAINNET_AGENT_ID is not set in .env — set it and rerun");
 else {
-  if (celoBal === 0n && usat < 20_000n) (EXEC ? fail : (m: string) => console.log("⚠ " + m))(`agent wallet needs CELO or ≥0.02 USA₮ for gas. Fund ${acct.address} — free: ${MAINNET_FAUCET}`);
-  step(`register ERC-8004 identity on ${M.identityRegistry} (ERC-8021 tag ${TAG}; gas in ${fc ? "USA₮ via fee adapter " + fc : "CELO"})`);
+  if (celoBal === 0n && usat < 20_000n && usdt < 20_000n) (EXEC ? fail : (m: string) => console.log("⚠ " + m))(`agent wallet needs CELO, or ≥0.02 USA₮ / USD₮ for gas. Fund ${acct.address} — free: ${MAINNET_FAUCET}`);
+  step(`register ERC-8004 identity on ${M.identityRegistry} (ERC-8021 tag ${TAG}; gas in ${fc ? (fc === M.usdt.feeCurrency ? "USD₮" : "USA₮") + " via fee adapter " + fc : "CELO"})`);
   if (EXEC) {
     const card = { type: "https://eips.ethereum.org/EIPS/eip-8004#registration-v1", name: process.env.AGENT_NAME || "ChainScout",
       description: "Agent Bounty Board worker: research, lead lists, contract reviews, translation, content, monitoring. Paid per job in USA₮ over x402; buys its tools via buy.",

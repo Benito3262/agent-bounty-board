@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Agent Bounty Board">
+  <rect width="512" height="512" rx="112" fill="#1b3b2b"/>
+  <!-- open rails: two tracks converging to the horizon -->
+  <path d="M120 460 L226 250 M392 460 L286 250" stroke="#fcff52" stroke-width="22" stroke-linecap="round"/>
+  <path d="M150 410h212M178 356h156M202 306h108" stroke="#35d07f" stroke-width="16" stroke-linecap="round"/>
+  <!-- agent head -->
+  <rect x="156" y="70" width="200" height="150" rx="44" fill="#fcff52"/>
+  <path d="M256 70V40" stroke="#fcff52" stroke-width="16" stroke-linecap="round"/><circle cx="256" cy="34" r="16" fill="#35d07f"/>
+  <circle cx="212" cy="140" r="20" fill="#1b3b2b"/><circle cx="300" cy="140" r="20" fill="#1b3b2b"/>
+  <path d="M222 186q34 18 68 0" stroke="#1b3b2b" stroke-width="12" fill="none" stroke-linecap="round"/>
+  <!-- bounty coin -->
+  <circle cx="378" cy="214" r="54" fill="#35d07f" stroke="#1b3b2b" stroke-width="12"/>
+  <text x="378" y="236" font-family="Arial,Helvetica,sans-serif" font-size="64" font-weight="900" fill="#1b3b2b" text-anchor="middle">$</text>
+</svg>
