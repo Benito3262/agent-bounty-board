@@ -32,14 +32,24 @@ export function net(n?: string) {
   return NETWORKS[(n === "mainnet" ? "mainnet" : "testnet") as Net];
 }
 
-export const JOB_TYPES = {
-  "wallet-check": "Independent-wallet check: is this Celo address active before a cutoff date, who funded it, balances",
-  "summarize-url": "Summarize a web page into key points (extractive, no LLM)",
+// Open-ended job categories. Posters write free-form title/description/spec; workers bid.
+export const CATEGORIES = {
+  research: { label: "Research report", hint: "Compare the top 5 Celo DEXes by volume (24h/7d/30d), with sources" },
+  leads: { label: "Lead list / data scraping (X, Reddit via buy)", hint: "Find 20 active MiniPay / Celo builders on X I can invite to a hackathon" },
+  audit: { label: "Smart-contract review & checklist", hint: "Review verified contract 0x… on Celo: roles, risks, checklist" },
+  translation: { label: "Translation (EN ↔ ES/PT)", hint: "Translate this announcement into Brazilian Portuguese: …" },
+  content: { label: "Content / X thread writing", hint: "Write a 6-post X thread explaining x402 payments on Celo" },
+  monitoring: { label: "Monitoring / alert report", hint: "Report activity on wallet 0x… and CELO price; alert if balance < 10" },
 } as const;
+export const JOB_TYPES = CATEGORIES; // back-compat
 
 // Messages workers sign. Kept in one place so API and agent agree.
 export const claimMsg = (jobId: number, agentId: string) => `agent-bounty-board:claim:${jobId}:agent:${agentId}`;
 export const deliverMsg = (jobId: number, sha: string) => `agent-bounty-board:deliver:${jobId}:sha256:${sha}`;
+
+export const bidMsg = (jobId: number, agentId: string, price: string) => `agent-bounty-board:bid:${jobId}:agent:${agentId}:price:${price}`;
+export const acceptBidMsg = (jobId: number, bidId: number) => `agent-bounty-board:accept-bid:${jobId}:${bidId}`;
+export const rejectMsg = (jobId: number, sha: string) => `agent-bounty-board:reject:${jobId}:sha256:${sha}`;
 
 export async function sha256hex(s: string) {
   const d = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(s));

@@ -5,20 +5,35 @@ import { x402Client, wrapFetchWithPayment, decodePaymentResponseHeader } from "@
 import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { N, API, publicClient, wallet, tx } from "../src/chain";
 import { reputationAbi } from "../src/abi";
+import { acceptBidMsg, rejectMsg } from "../src/config";
+import { readFileSync } from "node:fs";
 
 const poster = privateKeyToAccount(process.env.POSTER_PK as `0x${string}`);
 const j = (r: Response) => r.json() as any;
-const type = process.argv[2] || "wallet-check";
-const input = process.argv[3] || "0x765DE816845861e75A25fCA122bb6898B8B1282a cutoff 2026-10-06";
+// usage: tsx scripts/poster-e2e.ts jobs/research.json   (JSON: category,title,description,spec,reward[,reject])
+const spec = JSON.parse(readFileSync(process.argv[2] || "jobs/research.json", "utf8"));
+const type = spec.category;
+const H = { "content-type": "application/json" };
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const wait = async (ok: (j: any) => boolean, what: string) => { for (let i = 0; i < 120; i++) { const x = await fetch(`${API}/jobs/${id}`).then(j); if (ok(x)) return x; await sleep(5000); } throw new Error("timeout waiting for " + what); };
 
-const { id } = await fetch(API + "/jobs", { method: "POST", headers: { "content-type": "application/json" },
-  body: JSON.stringify({ type, input, reward: process.env.REWARD || "10000", poster: poster.address }) }).then(j);
-console.log("posted job", id);
+const { id } = await fetch(API + "/jobs", { method: "POST", headers: H,
+  body: JSON.stringify({ ...spec, poster: poster.address, deadline: Math.floor(Date.now() / 1000) + 2 * 86400 }) }).then(j);
+console.log("posted job", id, `${API.replace("/api", "")}/#job-${id}`);
 
-let job: any;
-for (let i = 0; i < 60; i++) { job = await fetch(`${API}/jobs/${id}`).then(j); if (job.status === "delivered") break; await new Promise((r) => setTimeout(r, 5000)); }
-if (job.status !== "delivered") throw new Error("not delivered in time — is the worker running?");
-console.log(`delivered by agent #${job.agent_id}:`, job.preview);
+let job = await wait((x) => x.bids?.length > 0, "a bid");
+const bid = job.bids[0];
+console.log(`bid from agent #${bid.agent_id}: ${bid.price} — ${bid.note}`);
+console.log("accept-bid:", await fetch(`${API}/jobs/${id}/accept-bid`, { method: "POST", headers: H, body: JSON.stringify({ bidId: bid.id, signature: await poster.signMessage({ message: acceptBidMsg(id, bid.id) }) }) }).then(j));
+
+job = await wait((x) => x.status === "delivered", "delivery");
+console.log(`delivered (preview):`, job.preview.slice(0, 300));
+if (spec.reject) {
+  console.log("reject:", await fetch(`${API}/jobs/${id}/reject`, { method: "POST", headers: H, body: JSON.stringify({ reason: spec.reject, signature: await poster.signMessage({ message: rejectMsg(id, job.result_sha) }) }) }).then(j));
+  job = await wait((x) => x.status === "delivered" && x.revisions > 0, "revised delivery");
+  console.log(`redelivered (preview):`, job.preview.slice(0, 300));
+}
+
 
 const client = new x402Client();
 client.register("eip155:*", new ExactEvmScheme(poster as any));
@@ -28,7 +43,8 @@ const pr = res.headers.get("PAYMENT-RESPONSE") || res.headers.get("X-PAYMENT-RES
 const settle = pr ? decodePaymentResponseHeader(pr) : null;
 const body = await res.json();
 console.log("paid over x402:", settle?.transaction && tx(settle.transaction));
-console.log("deliverable:", body.result);
+console.log("deliverable:\n" + body.result);
+await import("node:fs").then((fs) => { fs.mkdirSync("deliverables", { recursive: true }); fs.writeFileSync(`deliverables/job-${id}.md`, body.result); });
 if (settle?.transaction) await fetch(`${API}/jobs/${id}/paid`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: settle.transaction }) });
 
 const score = BigInt(process.env.SCORE || "95");

@@ -5,7 +5,7 @@ import { paymentMiddleware, x402ResourceServer } from "@x402/hono";
 import { HTTPFacilitatorClient } from "@x402/core/server";
 import { ExactEvmScheme } from "@x402/evm/exact/server";
 import { createPublicClient, http, getAddress, isAddress, verifyMessage, parseEventLogs, decodeFunctionData } from "viem";
-import { net, JOB_TYPES, claimMsg, deliverMsg, sha256hex } from "../../src/config";
+import { net, CATEGORIES, claimMsg, deliverMsg, bidMsg, acceptBidMsg, rejectMsg, sha256hex } from "../../src/config";
 import { identityAbi, reputationAbi, erc20Abi } from "../../src/abi";
 
 type Env = { DB: D1Database; NETWORK?: string; X402_API_KEY: string; ATTRIBUTION_TAG?: string };
@@ -19,7 +19,7 @@ const pub = (j: any) => { const { result, ...rest } = j; return { ...rest, purch
 
 app.get("/config", (c) => {
   const n = net(c.env.NETWORK);
-  return c.json({ network: c.env.NETWORK || "testnet", ...n, jobTypes: JOB_TYPES, attributionTag: c.env.ATTRIBUTION_TAG || null });
+  return c.json({ network: c.env.NETWORK || "testnet", ...n, categories: CATEGORIES, attributionTag: c.env.ATTRIBUTION_TAG || null });
 });
 
 app.get("/jobs", async (c) => {
@@ -33,22 +33,71 @@ app.get("/jobs", async (c) => {
 
 app.get("/jobs/:id", async (c) => {
   const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(+c.req.param("id")).first();
-  return j ? c.json(pub(j)) : c.json({ error: "not found" }, 404);
+  if (!j) return c.json({ error: "not found" }, 404);
+  const { results: bids } = await c.env.DB.prepare("SELECT * FROM bids WHERE job_id=? ORDER BY CAST(price AS INTEGER)").bind(j.id).all();
+  return c.json({ ...pub(j), bids });
 });
 
 app.post("/jobs", async (c) => {
   const b = await c.req.json<any>();
-  if (!(b.type in JOB_TYPES)) return c.json({ error: "unknown job type" }, 400);
+  const cat = b.category || b.type;
+  if (!(cat in CATEGORIES)) return c.json({ error: "unknown category" }, 400);
   if (!isAddress(b.poster || "")) return c.json({ error: "poster must be a wallet address" }, 400);
-  const reward = String(b.reward ?? "10000");
-  if (!/^\d+$/.test(reward) || BigInt(reward) < 1000n || BigInt(reward) > 5_000_000n) return c.json({ error: "reward must be 0.001–5 (base units 1000–5000000)" }, 400);
-  const input = String(b.input || "").slice(0, 2000);
-  if (!input) return c.json({ error: "input required" }, 400);
-  const title = String(b.title || `${b.type}: ${input}`).slice(0, 120);
+  const reward = String(b.reward ?? "100000");
+  if (!/^\d+$/.test(reward) || BigInt(reward) < 1000n || BigInt(reward) > 50_000_000n) return c.json({ error: "budget must be 0.001–50 (base units 1000–50000000)" }, 400);
+  const title = String(b.title || "").trim().slice(0, 140);
+  const description = String(b.description ?? b.input ?? "").trim().slice(0, 4000);
+  if (title.length < 5 || description.length < 10) return c.json({ error: "title and description required" }, 400);
+  const spec = String(b.spec || "").slice(0, 2000);
   const t = now();
-  const r = await c.env.DB.prepare("INSERT INTO jobs (network,type,title,input,reward,poster,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?) RETURNING id")
-    .bind(c.env.NETWORK || "testnet", b.type, title, input, reward, getAddress(b.poster), t, t).first<{ id: number }>();
+  const deadline = Number(b.deadline) > t ? Math.min(Number(b.deadline), t + 60 * 86400) : t + 3 * 86400;
+  const r = await c.env.DB.prepare("INSERT INTO jobs (network,type,title,input,spec,deadline,reward,poster,created_at,updated_at) VALUES (?,?,?,?,?,?,?,?,?,?) RETURNING id")
+    .bind(c.env.NETWORK || "testnet", cat, title, description, spec, deadline, reward, getAddress(b.poster), t, t).first<{ id: number }>();
   return c.json({ id: r!.id }, 201);
+});
+
+const ownerOf = async (e: Env, agentId: string) =>
+  client(e).readContract({ address: net(e.NETWORK).identityRegistry, abi: identityAbi, functionName: "ownerOf", args: [BigInt(agentId)] }).catch(() => null);
+
+// Workers bid (price ≤ budget) signed by the wallet that owns their ERC-8004 identity.
+app.post("/jobs/:id/bids", async (c) => {
+  const id = +c.req.param("id");
+  const { agentId, price, note, eta, signature } = await c.req.json<any>();
+  const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(id).first<any>();
+  if (!j || j.status !== "open") return c.json({ error: "job not open for bids" }, 409);
+  if (j.deadline && j.deadline < now()) return c.json({ error: "job deadline passed" }, 409);
+  if (!/^\d+$/.test(String(price)) || BigInt(price) <= 0n || BigInt(price) > BigInt(j.reward)) return c.json({ error: "price must be >0 and ≤ budget" }, 400);
+  const owner = await ownerOf(c.env, String(agentId));
+  if (!owner) return c.json({ error: "agentId is not a registered ERC-8004 agent" }, 400);
+  if (!(await verifyMessage({ address: owner, message: bidMsg(id, String(agentId), String(price)), signature }))) return c.json({ error: "signature does not match the ERC-8004 agent owner" }, 401);
+  await c.env.DB.prepare("INSERT OR REPLACE INTO bids (job_id,agent_id,worker,price,note,eta,created_at) VALUES (?,?,?,?,?,?,?)")
+    .bind(id, String(agentId), owner, String(price), String(note || "").slice(0, 1000), Number(eta) || null, now()).run();
+  return c.json({ ok: true });
+});
+
+// Poster accepts one bid (signed by the poster wallet) → job assigned at that price.
+app.post("/jobs/:id/accept-bid", async (c) => {
+  const id = +c.req.param("id");
+  const { bidId, signature } = await c.req.json<any>();
+  const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(id).first<any>();
+  const bid = await c.env.DB.prepare("SELECT * FROM bids WHERE id=? AND job_id=?").bind(+bidId, id).first<any>();
+  if (!j || !bid) return c.json({ error: "job/bid not found" }, 404);
+  if (j.status !== "open") return c.json({ error: "job already assigned" }, 409);
+  if (!(await verifyMessage({ address: j.poster, message: acceptBidMsg(id, +bidId), signature }))) return c.json({ error: "only the poster can accept a bid" }, 401);
+  await c.env.DB.prepare("UPDATE jobs SET status='assigned', agent_id=?, worker=?, price=?, updated_at=? WHERE id=? AND status='open'").bind(bid.agent_id, bid.worker, bid.price, now(), id).run();
+  return c.json({ ok: true, worker: bid.worker, price: bid.price });
+});
+
+// Poster rejects a delivery with a reason (signed). Worker revises and redelivers.
+app.post("/jobs/:id/reject", async (c) => {
+  const id = +c.req.param("id");
+  const { reason, signature } = await c.req.json<any>();
+  const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(id).first<any>();
+  if (!j || j.status !== "delivered") return c.json({ error: "nothing to reject" }, 409);
+  if (!(await verifyMessage({ address: j.poster, message: rejectMsg(id, j.result_sha), signature }))) return c.json({ error: "only the poster can reject" }, 401);
+  if ((j.revisions || 0) >= 3) return c.json({ error: "max 3 revisions" }, 409);
+  await c.env.DB.prepare("UPDATE jobs SET status='revision', feedback=?, revisions=COALESCE(revisions,0)+1, updated_at=? WHERE id=?").bind(String(reason || "").slice(0, 1000), now(), id).run();
+  return c.json({ ok: true });
 });
 
 // Worker claims with a signature from the wallet that owns its ERC-8004 identity.
@@ -70,11 +119,11 @@ app.post("/jobs/:id/deliver", async (c) => {
   const id = +c.req.param("id");
   const { result, signature, purchases } = await c.req.json<any>();
   const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(id).first<any>();
-  if (!j || j.status !== "claimed") return c.json({ error: "job not claimed" }, 409);
-  const text = String(result || "").slice(0, 20000);
+  if (!j || !["claimed", "assigned", "revision"].includes(j.status)) return c.json({ error: "job not assigned to a worker" }, 409);
+  const text = String(result || "").slice(0, 60000);
   const sha = await sha256hex(text);
   if (!(await verifyMessage({ address: j.worker, message: deliverMsg(id, sha), signature }))) return c.json({ error: "bad worker signature" }, 401);
-  const preview = text.slice(0, 160) + (text.length > 160 ? "…" : "");
+  const preview = text.slice(0, 700) + (text.length > 700 ? "…" : ""); // free preview so the poster can judge before paying
   // Build with buy: verify each claimed purchase on-chain (stablecoin Transfer to the buy gateway's payTo).
   const verified = [] as any[];
   for (const p of (Array.isArray(purchases) ? purchases : []).slice(0, 5)) {
@@ -94,7 +143,7 @@ app.use("/jobs/:id/result", async (c, next) => {
   const id = +c.req.param("id");
   const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(id).first<any>();
   if (!j) return c.json({ error: "not found" }, 404);
-  if (j.status === "open" || j.status === "claimed") return c.json({ error: "not delivered yet" }, 409);
+  if (!["delivered", "paid", "rated"].includes(j.status)) return c.json({ error: "not delivered yet" }, 409);
   const n = net(c.env.NETWORK);
   const facilitator = new HTTPFacilitatorClient({
     url: n.facilitator,
@@ -109,7 +158,7 @@ app.use("/jobs/:id/result", async (c, next) => {
   const routes = {
     "GET /api/jobs/:id/result": {
       accepts: [{ scheme: "exact", network: n.caip2, payTo: getAddress(j.worker),
-        price: { amount: String(j.reward), asset: getAddress(n.token.address), extra: n.token.extra } }],
+        price: { amount: String(j.price || j.reward), asset: getAddress(n.token.address), extra: n.token.extra } }],
       description: `Deliverable for bounty #${id}: ${j.title}`,
       mimeType: "application/json",
     },
@@ -117,7 +166,7 @@ app.use("/jobs/:id/result", async (c, next) => {
   return paymentMiddleware(routes, server)(c, next);
 });
 app.get("/jobs/:id/result", async (c) => {
-  const j = await c.env.DB.prepare("SELECT id,title,type,result,result_sha,worker,agent_id FROM jobs WHERE id=?").bind(+c.req.param("id")).first();
+  const j = await c.env.DB.prepare("SELECT id,title,type,spec,result,result_sha,worker,agent_id,price FROM jobs WHERE id=?").bind(+c.req.param("id")).first();
   return c.json(j);
 });
 
@@ -146,7 +195,7 @@ app.post("/jobs/:id/paid", async (c) => {
   const n = net(c.env.NETWORK);
   const rc = await client(c.env).getTransactionReceipt({ hash: tx });
   const logs = parseEventLogs({ abi: erc20Abi, logs: rc.logs.filter((l) => l.address.toLowerCase() === n.token.address.toLowerCase()), eventName: "Transfer" });
-  const hit = logs.find((l: any) => l.args.to.toLowerCase() === j.worker.toLowerCase() && l.args.value >= BigInt(j.reward));
+  const hit = logs.find((l: any) => l.args.to.toLowerCase() === j.worker.toLowerCase() && l.args.value >= BigInt(j.price || j.reward));
   if (!hit) return c.json({ error: "no matching payment in tx" }, 400);
   await c.env.DB.prepare("UPDATE jobs SET status=CASE WHEN status='delivered' THEN 'paid' ELSE status END, pay_tx=?, updated_at=? WHERE id=?").bind(tx, now(), id).run();
   return c.json({ ok: true });
@@ -170,7 +219,7 @@ app.get("/leaderboard", async (c) => {
   const n = net(c.env.NETWORK); const pc = client(c.env); const nw = c.env.NETWORK || "testnet";
   const { results: agents } = await c.env.DB.prepare("SELECT * FROM agents WHERE network=?").bind(nw).all<any>();
   const out = await Promise.all(agents.map(async (a) => {
-    const stats = await c.env.DB.prepare("SELECT COUNT(*) jobs, SUM(CASE WHEN pay_tx IS NOT NULL THEN CAST(reward AS INTEGER) ELSE 0 END) earned FROM jobs WHERE network=? AND agent_id=? AND status IN ('delivered','paid','rated')").bind(nw, a.agent_id).first<any>();
+    const stats = await c.env.DB.prepare("SELECT COUNT(*) jobs, SUM(CASE WHEN pay_tx IS NOT NULL THEN CAST(COALESCE(price,reward) AS INTEGER) ELSE 0 END) earned FROM jobs WHERE network=? AND agent_id=? AND status IN ('delivered','paid','rated')").bind(nw, a.agent_id).first<any>();
     let count = 0, avg = null as number | null;
     try {
       const clients = await pc.readContract({ address: n.reputationRegistry, abi: reputationAbi, functionName: "getClients", args: [BigInt(a.agent_id)] });

@@ -11,3 +11,10 @@ main{max-width:980px;margin:0 auto;padding:20px}.net{text-align:center;font-size
 pre{background:#0a0c0f;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;white-space:pre-wrap;font-size:13px}
 table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:left}footer{text-align:center;color:var(--mut);font-size:12px;padding:30px}
 .hero h1{margin:.2em 0}.hero p{color:var(--mut);max-width:680px}
+
+.wallet-box{display:flex;gap:8px;align-items:center}.addr{display:flex;gap:6px;align-items:center;background:#2a313b;padding:6px 10px;border-radius:8px;font-family:monospace}.addr img,.wallet img{width:20px;height:20px}
+.bal{font-size:13px;color:var(--ok)}a.card{display:block;text-decoration:none;color:inherit}.job:hover{border-color:var(--acc)}
+.modal{position:fixed;inset:0;background:#000a;display:flex;align-items:center;justify-content:center;z-index:9}.modal .card{width:min(420px,92vw)}
+button.wallet{display:flex;gap:10px;align-items:center;width:100%;margin:6px 0;background:#2a313b;color:var(--txt);padding:12px}
+.toast{position:fixed;bottom:16px;left:50%;transform:translateX(-50%);background:#1d3b2a;border:1px solid var(--ok);padding:10px 16px;border-radius:8px;z-index:10;max-width:90vw}.toast.bad{background:#3b1d1d;border-color:#f66}
+.bid{border-top:1px solid var(--line);padding:10px 0}.md table{font-size:13px}.md{overflow-x:auto}.actions{margin-top:12px;justify-content:flex-start}button[disabled]{opacity:.5}
