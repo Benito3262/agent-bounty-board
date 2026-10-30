@@ -3,3 +3,4 @@ node_modules
 *.log
 demo/slides/*.mp4
 demo/slides/*.mp3
+demo/v2/review/
