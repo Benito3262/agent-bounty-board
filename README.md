@@ -174,3 +174,8 @@ Every purchase is attached to the delivery and **verified on-chain by the API** 
 4. `npm run worker` (restart) — the agent bids on mainnet jobs.
 
 MIT
+
+## Wallet connect (on-site)
+- Desktop & mobile browsers: Reown AppKit modal (WalletConnect QR + MetaMask/Trust/Valora/Coinbase, 140+ wallets). Enable with `npm run set-reown -- <REOWN_PROJECT_ID>` (sets the Pages secret + redeploys). In the Reown dashboard add `https://agent-bounty-board.pages.dev` to allowed domains.
+- Browser extensions are discovered via EIP-6963; MiniPay auto-connects. "Open in wallet" deep links are only a small fallback when AppKit is not configured.
+- Checks: `python3 test/audit.py <url>`, `python3 test/appkit_check.py <url>`, `python3 test/ui.py minipay <url>` (needs `npx tsx test/signer.mts`).

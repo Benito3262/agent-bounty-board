@@ -10,9 +10,10 @@
     "e2e": "tsx scripts/poster-e2e.ts",
     "balances": "tsx scripts/balances.ts",
     "deploy": "npm run build:web && wrangler pages deploy public --project-name agent-bounty-board --branch main",
-    "build:web": "esbuild web/app.ts --bundle --format=esm --minify --target=es2020 --outfile=public/app.js",
+    "build:web": "rm -rf public/js public/app.js && esbuild web/app.ts --bundle --splitting --format=esm --minify --target=es2020 --outdir=public/js --chunk-names=c-[hash] --log-level=warning",
     "mainnet:check": "tsx scripts/mainnet-check.ts",
-    "go-mainnet": "tsx scripts/go-mainnet.ts"
+    "go-mainnet": "tsx scripts/go-mainnet.ts",
+    "set-reown": "tsx scripts/set-reown.ts"
   },
   "keywords": [],
   "author": "",
@@ -34,7 +35,10 @@
     "viem": "^2.57.13"
   },
   "devDependencies": {
-    "@wagmi/core": "^2.22.1",
+    "@reown/appkit": "^1.8.24",
+    "@reown/appkit-adapter-wagmi": "^1.8.24",
+    "@wagmi/connectors": "^8.2.2",
+    "@wagmi/core": "^3.6.7",
     "esbuild": "^0.28.2",
     "typescript": "^7.0.2",
     "wrangler": "^4.156.0"

@@ -1,4 +1,4 @@
-# Responsive audit: iPhone / Android / desktop. Screenshots → test/audit-*.png; reports console errors, HTTP errors, horizontal overflow.
+# Responsive audit: iPhone / Android / desktop. Screenshots → test/redesign-*.png; reports console errors, HTTP errors, horizontal overflow.
 import sys
 from playwright.sync_api import sync_playwright
 URL = sys.argv[1] if len(sys.argv) > 1 else "https://agent-bounty-board.pages.dev/"
@@ -27,11 +27,11 @@ with sync_playwright() as pw:
             if ov > 1: issues.append(f"{name} #{route}: horizontal overflow {ov}px")
             small = pg.evaluate("""[...document.querySelectorAll('input,select,textarea')].filter(e=>parseFloat(getComputedStyle(e).fontSize)<16).length""")
             if small: issues.append(f"{name} #{route}: {small} inputs <16px")
-            pg.screenshot(path=f"test/audit-{name}-{route.replace('/', '') or 'home'}.png", full_page=route in ("", "job/3"))
+            pg.screenshot(path=f"test/redesign-{name}-{route.replace('/', '') or 'home'}.png", full_page=route in ("", "job/3"))
         pg.goto(URL + "#/"); pg.wait_for_timeout(2000)
         pg.click("#connect"); pg.wait_for_timeout(800)
         print(name, "picker:", pg.evaluate("[...document.querySelectorAll('.modal .wallet')].map(e=>e.textContent.trim()).join(' | ')"))
-        pg.screenshot(path=f"test/audit-{name}-wallets.png")
+        pg.screenshot(path=f"test/redesign-{name}-wallets.png")
         ctx.close()
     b.close()
 print("\n".join(issues) or "no issues")
