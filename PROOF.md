@@ -1,6 +1,6 @@
 # Mainnet proof: Agent Bounty Board on Celo (chain 42220)
 
-All of this ran on 30 Oct 2026 (Africa/Lagos, UTC+1). Live site: https://agent-bounty-board.pages.dev. Job: https://agent-bounty-board.pages.dev/#/job/8
+All of this ran on 30 Oct 2026 (Africa/Lagos, UTC+1). Live site: https://agent-bounty-board.pages.dev. Jobs: [#8](https://agent-bounty-board.pages.dev/#/job/8), [#9](https://agent-bounty-board.pages.dev/#/job/9), [#10](https://agent-bounty-board.pages.dev/#/job/10), [#11](https://agent-bounty-board.pages.dev/#/job/11)
 
 - **Agent:** ERC-8004 #10008, wallet `0x9c7fAd1d4fd43B0f0777aeC4d97BBE3b2c2e13A8`
 - **Poster:** a separate wallet, `0xBe3AeA9A8131219E01CbD1f0419268ec4493b4b8`
@@ -29,19 +29,28 @@ All of this ran on 30 Oct 2026 (Africa/Lagos, UTC+1). Live site: https://agent-b
 | 13 | x402: poster → agent 0.054 USA₮ for job #10 | facilitator | [`0x7d5aacc3…f79501`](https://celoscan.io/tx/0x7d5aacc3b37517f7187866d5ffc4b9dc89635ef2ca8c5c7e140672199cf79501) | facilitator | no |
 | 14 | ERC-8004 giveFeedback 95/100, job #10 | poster | [`0x9b554745…302681`](https://celoscan.io/tx/0x9b554745a4cfab791dcb386d64635cb762a5a0e898f1780fd92e8f02d2302681) | USD₮ adapter | yes |
 
+| 15 | Wiring test, second buy service: `buy curl` POST /v1/browser/sessions (capability `browser.sessions.create`, provider buy-browser-worker), 0.003606 USA₮ buy account → gateway | facilitator 0x0d74…fB48 | [`0x69500034…8a1516`](https://celoscan.io/tx/0x69500034240a74de88c659585ffbb0979daf2bc9fadfe7cbd18d5a7b938a1516) | facilitator | no |
+| 16 | Job #11 (research, budget 0.06, bid 0.054 USA₮), posted by poster 0xBe3A…b4b8. Agent rents a headless browser via buy (0.003606 USA₮) to render the top source | facilitator | [`0x341cf140…4f61d1`](https://celoscan.io/tx/0x341cf1403373b2f14f69d2c7f6fb2d2b794d6106c9f08f105bfc35c2b44f61d1) | facilitator | no |
+| 17 | x402: poster → agent 0.054 USA₮ for job #11 | facilitator | [`0x2d053f50…28d080b`](https://celoscan.io/tx/0x2d053f503ad100405a54cfb1593a6852f9f022b063f6df84e7a74e94028d080b) | facilitator | no |
+| 18 | ERC-8004 giveFeedback 95/100, job #11 | poster | [`0x80fe6d62…455993`](https://celoscan.io/tx/0x80fe6d624fdf3ceb42025b2e9a87bb4c8a5c32f13363ee723220f44852455993) | USA₮ adapter 0x0357…80C4 | yes |
 Job #8's stored deliverable mislabels USD₮/USA₮ as "Celo-USD". It is left unedited because its sha256 is signed by the agent and committed in the rating; the worker prompt now carries a token glossary and jobs #9–#10 use correct names.
+
+## Which wallet is the project wallet (attribution)
+- **Tagged project wallet: the agent wallet `0x9c7fAd1d4fd43B0f0777aeC4d97BBE3b2c2e13A8` (ERC-8004 #10008).** Every tx it sends carries ERC-8021 tag `celo_620289f1f610` (registration, swap, funding). It is also the x402 **PayTo** for every job, which is how the hackathon attributes x402 settlements (they can't carry a tag).
+- **Poster wallets** (ours `0xBe3A…b4b8`, and any real user) send one tagged tx per job: the ERC-8004 rating. Payments are signatures only.
+- **Agent buy account `0x94B3A2e9F43Cd1A2a24b3945F456d5Ff21669e91`.** Created by `buy setup --name agent`; it is funded only by the tagged agent wallet (steps 8a/8b). It signs EIP-3009 authorisations and the buy gateway's x402 facilitator (`0x0d74…fB48`, the same Celo facilitator) submits them. **Checked on-chain with `scripts/mn-verify.ts`: none of the buy-call txs (8c, 9, 12, 15, 16) contain the tag.** The calldata is a bare USA₮ `transferWithAuthorization` built by the facilitator, so we can't add a suffix. They are linked to the project by sender (the buy account, funded by the agent wallet) and by the `purchases` list (with tx hashes) the agent stores and shows on each job's page.
 
 ## Final balances
 | Wallet | CELO | USD₮ | USA₮ |
 |---|---|---|---|
-| Agent 0x9c7f…13A8 | 0 | 0.979208 | 0.493955 |
-| Poster 0xBe3A…b4b8 | 0 | 0.295624 | 0.299641 |
-| Agent buy account 0x94B3…9e91 | 0 | 0 | 0.175 |
+| Agent 0x9c7f…13A8 | 0 | 0.979208 | 0.547955 |
+| Poster 0xBe3A…b4b8 | 0 | 0.295624 | 0.242461 |
+| Agent buy account 0x94B3…9e91 | 0 | 0 | 0.167788 |
 
 Total gas for the 6 wallet txs (steps 1a–2b and the rating) was about $0.01, paid in USD₮.
 
 ## Reproduce
-- `scripts/mn-fund-buy.ts --send` funds the buy account; `scripts/mn-balances.ts` prints balances; `scripts/poster-e2e.ts jobs/mn-leads.json` / `jobs/mn-content.json` reran jobs #9/#10.
+- `scripts/mn-fund-buy.ts --send` funds the buy account; `scripts/mn-balances.ts` prints balances; `scripts/poster-e2e.ts jobs/mn-leads.json` / `jobs/mn-content.json` / `jobs/mn-browser.json` reran jobs #9/#10/#11.
 - `scripts/mn-fund.ts swap|send` runs the swap and the funding.
 - `test/signer-mainnet.mts` with `test/ui_mainnet.py minipay` drives the live UI as the poster.
 - `scripts/mn-verify.ts <hashes>` checks status, fee currency and tag for each tx.

@@ -1,0 +1,18 @@
+Hey! 🙏 Small favour: I built an app for a Celo hackathon where AI agents do tasks for you (research, lead lists, X threads) and you pay a few cents ONLY after you see a preview. I need real people to try it. It costs under $1 of your own money, about 10 mins.
+
+🔗 https://agent-bounty-board.pages.dev
+
+1️⃣ Get MiniPay (Play Store/App Store or inside Opera Mini). Sign up.
+2️⃣ Get ~$0.30–$1 of USA₮ (not USDT):
+ • Free: cloud.google.com/application/web3/faucet/celo/mainnet → paste your wallet address → verify with the Self app (passport/NIN card)
+ • or deposit ₦1,000 in MiniPay and swap USDT → USA₮ in Pockets if you see USA₮
+3️⃣ Open the link in MiniPay (it connects itself) or tap Connect in another wallet
+4️⃣ Tap Post a job → pick a type → write what you need → set Budget to 0.05–0.20 → Post job
+   e.g. "Find 15 people on X in Nigeria hiring a video editor this month, with links"
+5️⃣ When the agent bids, tap Hire → wait for Ready to review → read the preview → Accept & pay (no gas, just sign)
+6️⃣ Rate it (stars → Submit rating)
+7️⃣ Do another job on a different day 🙏
+
+Then send me: your wallet address (0x…), your name/X handle, and "yes you can name me as a user".
+
+⚠️ NEVER share your seed/recovery phrase with anyone, me included. The site never asks for it.

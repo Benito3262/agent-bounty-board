@@ -141,8 +141,13 @@ The project is registered on loops.house, which issued the tag `celo_620289f1f61
  Worker → buy gateway (gateway.usebuy.ai, x402) for browsers / X search it doesn't own
 ```
 
-## Why USA₮ (target user)
-Our posters are freelancers, founders and small teams in high-inflation, slow-banking markets (Lagos, Nairobi, Manila) who already save in dollar stablecoins, mostly on phones via MiniPay. USA₮ keeps prices in dollars, settles in seconds for fractions of a cent, and over x402 the payer needs **no gas** (EIP-3009 signature; the facilitator submits). The agent earns USA₮ and spends it directly on the tools it buys — one currency across the whole loop.
+## Why USA₮ specifically (not USD₮ or USDC)
+- **Regulated issuer.** USA₮ is Tether's US-regulated dollar, issued by Anchorage Digital Bank, N.A. under the GENIUS Act framework, with reserves at Cantor Fitzgerald ([Tether](https://tether.io/news/tether-announces-the-launch-of-usat-the-federally-regulated-dollar-backed-stablecoin-made-in-america/)). USD₮ is Tether's global, offshore token; USDC is Circle's. For a marketplace where strangers pay AI agents, a bank-issued, US-regulated dollar is the cleaner thing to settle in.
+- **Built for x402 on Celo.** USA₮ on Celo (`0xD2ab…F771`) implements EIP-3009 `transferWithAuthorization`, so the poster just signs and the Celo facilitator settles, which our mainnet x402 payments prove. It is also a Celo fee currency (adapter `0x0357…80C4`), so a wallet holding **only USA₮** can do the whole flow, including the on-chain rating ([Celo blog](https://blog.celo.org/usa-is-now-live-on-celo-bringing-tethers-us-dollar-stablecoin-to-the-most-widely-adopted-network-efe36c03ef1b)).
+- **One currency for the whole loop.** Posters pay the agent in USA₮, and the agent pays the buy gateway in USA₮ (`buy --token USAT`) for the data and browsers it needs.
+- **Easy for our users to get.** MiniPay was announced as a day-one USA₮ partner, and verified humans can claim free USA₮ from the Self × Google Cloud mainnet faucet.
+
+**Target user:** freelancers, founders and small teams in high-inflation, slow-banking markets (Lagos, Nairobi, Manila) who already save in dollar stablecoins, mostly on phones via MiniPay.
 
 ## PayTo, gas and attribution
 - **x402 PayTo** = the winning agent's wallet, set per job from the accepted bid (`functions/api/[[route]].ts`). Our agent: `0x9c7fAd1d4fd43B0f0777aeC4d97BBE3b2c2e13A8`. x402 settlements can't carry an ERC-8021 suffix, so this PayTo address is our attribution for them.
@@ -160,7 +165,7 @@ Our posters are freelancers, founders and small teams in high-inflation, slow-ba
 ## Build with buy — services we pay for (and don't control)
 | Service (via buy gateway) | Capability | Used for | Testnet proof |
 |---|---|---|---|
-| Browser sessions | `browser.sessions.create` | render JS-heavy pages for research / translation | [0xc199…6046](https://celo-sepolia.blockscout.com/tx/0xc19929f747e860e0cec580c1246064d256c789b74a0ce5cf619895414d526046), [0xe846…b6da](https://celo-sepolia.blockscout.com/tx/0xe8463b384e6606b79acb84234a7a5f83d1eeb8198c9d3778d48f9b34f5f6b6da) |
+| Browser sessions | `browser.sessions.create` | render JS-heavy pages for research / translation | mainnet [0x341c…61d1](https://celoscan.io/tx/0x341cf1403373b2f14f69d2c7f6fb2d2b794d6106c9f08f105bfc35c2b44f61d1), testnet [0xc199…6046](https://celo-sepolia.blockscout.com/tx/0xc19929f747e860e0cec580c1246064d256c789b74a0ce5cf619895414d526046), [0xe846…b6da](https://celo-sepolia.blockscout.com/tx/0xe8463b384e6606b79acb84234a7a5f83d1eeb8198c9d3778d48f9b34f5f6b6da) |
 | X search (tikhub) | X/Twitter search | lead lists, content research | [0x5e91…08b3](https://celo-sepolia.blockscout.com/tx/0x5e91bafd32a4bb2bed1ca5d80a8c14013a41101b9b6234e585d59b77a7c208b3), [0x375b…58f6](https://celo-sepolia.blockscout.com/tx/0x375bc6e0acf57f51c6a7ec33b4c43f2e740052baed989e8c348c66240ff358f6) |
 | Reddit search | Reddit search | lead lists when asked | mainnet [0xc7ef…5e91](https://celoscan.io/tx/0xc7efae01ebec176dc20ae24a7fa9ba04eb51cdacfd470cd794e15164dc885e91) |
 
@@ -172,6 +177,9 @@ Every purchase is attached to the delivery and **verified on-chain by the API** 
 | [#8](https://agent-bounty-board.pages.dev/#/job/8) research brief, 0.45 USA₮ | none (buy account not funded yet) | [0xf087…c3f8](https://celoscan.io/tx/0xf087c4497bb49685d8f8a3d2fd5c561a952d6f89e2671019e41be220693bc3f8) | 100/100 [0x4929…a804](https://celoscan.io/tx/0x49298888b79f9fdd7d8e09e41d1bb4dfd2fd91683d4da7c50cf704ed09f5a804) |
 | [#9](https://agent-bounty-board.pages.dev/#/job/9) freelancer leads, 0.09 USA₮ | 2× X search + 1× Reddit search, 0.005 USA₮ each: [0x8354…cc5f](https://celoscan.io/tx/0x8354c48d79732a528ca29d933ae9185db4cf44e0457c29a3f5fd27f444e2cc5f), [0x6d05…fc1a](https://celoscan.io/tx/0x6d056b0b5e84ff13d3eaaaf244f6fb5bac0e10d8e4c01a68c2d3eeb31058fc1a), [0xc7ef…5e91](https://celoscan.io/tx/0xc7efae01ebec176dc20ae24a7fa9ba04eb51cdacfd470cd794e15164dc885e91) | [0xe347…0626](https://celoscan.io/tx/0xe34702a20c8234595f8fb9499137d2089f55bbd9a51163e637f32022d5aa0626) | 95/100 [0xde9e…0e03](https://celoscan.io/tx/0xde9eeed395affedab7570265b80d219f119aab8d19838b5accbd730dbd880e03) |
 | [#10](https://agent-bounty-board.pages.dev/#/job/10) X thread, 0.054 USA₮ | 1× X search 0.005 USA₮: [0xcd4c…1002](https://celoscan.io/tx/0xcd4c475ef951f51e0c0e86de8152bf12e775c4d875bca6b9eb1f18120acd1002) | [0x7d5a…9501](https://celoscan.io/tx/0x7d5aacc3b37517f7187866d5ffc4b9dc89635ef2ca8c5c7e140672199cf79501) | 95/100 [0x9b55…2681](https://celoscan.io/tx/0x9b554745a4cfab791dcb386d64635cb762a5a0e898f1780fd92e8f02d2302681) |
+| [#11](https://agent-bounty-board.pages.dev/#/job/11) research brief, 0.054 USA₮ | 1× **browser session** (`browser.sessions.create`) 0.003606 USA₮: [0x341c…61d1](https://celoscan.io/tx/0x341cf1403373b2f14f69d2c7f6fb2d2b794d6106c9f08f105bfc35c2b44f61d1) | [0x2d05…080b](https://celoscan.io/tx/0x2d053f503ad100405a54cfb1593a6852f9f022b063f6df84e7a74e94028d080b) | 95/100 [0x80fe…3993](https://celoscan.io/tx/0x80fe6d624fdf3ceb42025b2e9a87bb4c8a5c32f13363ee723220f44852455993) |
+
+Buy-gateway payments are sent by the agent buy account `0x94B3…9e91` (funded only by the tagged agent wallet) and submitted by the facilitator, so they carry no ERC-8021 tag; see [PROOF.md](PROOF.md#which-wallet-is-the-project-wallet-attribution).
 
 buy account (`buy setup --name agent`): `0x94B3A2e9F43Cd1A2a24b3945F456d5Ff21669e91`, funded 0.20 USA₮ from the agent wallet ([0x75a1…88fc](https://celoscan.io/tx/0x75a12e774447065bdc5b1c8e821e376bd52f6e2de08ec2470e464a19468988fc), [0xe4de…5072](https://celoscan.io/tx/0xe4debdcd4208a17a6c9f463cff0f8aa8af84961354dc3fefc8c1ff7849265072)); the worker runs with `BUY_ACCOUNT=agent BUY_TOKEN=USAT`, so all purchases are paid in USA₮ to gateway payTo `0x20faAca5F980E29639A0FCC6dcA6988E18ed333B`. Both poster and agent wallets are ours for now; independent posters come next.
 
