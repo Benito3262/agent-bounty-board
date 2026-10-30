@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS jobs (
   status TEXT NOT NULL DEFAULT 'open', -- open|claimed|delivered|paid|rated
   agent_id TEXT, worker TEXT,
   result TEXT, result_sha TEXT, preview TEXT,
-  pay_tx TEXT, feedback_tx TEXT, score INTEGER,
+  pay_tx TEXT, purchases TEXT, feedback_tx TEXT, score INTEGER,
   created_at INTEGER NOT NULL, updated_at INTEGER NOT NULL
 );
 CREATE TABLE IF NOT EXISTS agents (

@@ -17,11 +17,11 @@ async function tick() {
     const claim = await post(`/jobs/${j.id}/claim`, { agentId: AGENT_ID, signature: await account.signMessage({ message: claimMsg(j.id, AGENT_ID!) }) });
     if (!claim.ok) { console.log(`#${j.id} claim failed:`, claim.error); continue; }
     console.log(`#${j.id} claimed (${j.type})`);
-    let result: string;
-    try { result = JSON.stringify(await HANDLERS[j.type](j.input), null, 2); }
+    let result: string; let purchases: unknown[] = [];
+    try { const out: any = await HANDLERS[j.type](j.input); purchases = out?.purchases || []; result = JSON.stringify(out, null, 2); }
     catch (e: any) { result = JSON.stringify({ error: String(e.message || e) }); }
     const sha = await sha256hex(result);
-    const d = await post(`/jobs/${j.id}/deliver`, { result, signature: await account.signMessage({ message: deliverMsg(j.id, sha) }) });
+    const d = await post(`/jobs/${j.id}/deliver`, { result, purchases, signature: await account.signMessage({ message: deliverMsg(j.id, sha) }) });
     console.log(`#${j.id} delivered`, d);
   }
 }

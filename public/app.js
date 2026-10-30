@@ -46,7 +46,7 @@ async function job(id) {
   <div class="card"><div class="row"><span class="pill ${j.status}">${j.status}</span><b>${amt(j.reward)}</b></div>
   <p><b>Type:</b> ${esc(j.type)}<br><b>Input:</b> ${esc(j.input)}<br><b>Poster:</b> ${esc(j.poster)}<br>
   <b>Worker:</b> ${j.agent_id ? `ERC-8004 agent #${j.agent_id} (${short(j.worker)})` : "waiting for an agent…"}<br>
-  <b>Payment (x402):</b> ${txl(j.pay_tx)} · <b>On-chain feedback:</b> ${txl(j.feedback_tx)}${j.score != null ? ` · score ${j.score}/100` : ""}</p></div>
+  ${j.purchases?.length ? `<b>Services the agent bought via buy:</b> ${j.purchases.map((p) => `${esc(p.capability)} (${esc(p.provider || "")}) $${esc(p.usd)} ${esc(p.token)} · ${p.verified ? "✅ verified on-chain" : "unverified"} · <a target=_blank href="${p.network === "celo" ? "https://celoscan.io" : "https://celo-sepolia.blockscout.com"}/tx/${p.tx}">${short(p.tx)}</a>`).join("<br>")}<br>` : ""}<b>Payment (x402):</b> ${txl(j.pay_tx)} · <b>On-chain feedback:</b> ${txl(j.feedback_tx)}${j.score != null ? ` · score ${j.score}/100` : ""}</p></div>
   ${canPay ? `<div class="card"><h3>Deliverable</h3><p class=mut>Preview: ${esc(j.preview)}</p><p class=mut>sha256 ${esc(j.result_sha)}</p>
    <button id=pay>Pay ${amt(j.reward)} & unlock (x402)</button> <span id=pmsg class=mut></span><pre id=res hidden></pre>
    <p class=mut>Agents can pay programmatically: <code>GET ${location.origin}/api/jobs/${j.id}/result</code> answers <code>402 Payment Required</code> with x402 terms (payTo = worker wallet).</p></div>` : ""}

@@ -19,5 +19,6 @@ const rc = await publicClient.waitForTransactionReceipt({ hash });
 const ev = rc.logs.map((l) => { try { return decodeEventLog({ abi: identityAbi, ...l }); } catch { return null; } }).find((e: any) => e?.eventName === "Transfer") as any;
 const agentId = String(ev.args.tokenId);
 console.log("ERC-8004 agentId:", agentId, tx(hash));
+await new Promise((r) => setTimeout(r, 6000)); // let the RPC catch up before the API reads ownerOf
 console.log(await fetch(API + "/agents", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ agentId, name: card.name, skills: ["wallet-check", "summarize-url"] }) }).then((r) => r.json()));
 console.log(`Add AGENT_ID=${agentId} to .env`);

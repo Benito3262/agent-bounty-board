@@ -17,6 +17,7 @@
   "type": "module",
   "dependencies": {
     "@celo/attribution-tags": "^0.5.0",
+    "@celo/buy": "^0.8.5",
     "@hono/node-server": "^2.1.5",
     "@x402/core": "^2.29.0",
     "@x402/evm": "^2.29.0",

@@ -9,12 +9,13 @@ import { net, JOB_TYPES, claimMsg, deliverMsg, sha256hex } from "../../src/confi
 import { identityAbi, reputationAbi, erc20Abi } from "../../src/abi";
 
 type Env = { DB: D1Database; NETWORK?: string; X402_API_KEY: string; ATTRIBUTION_TAG?: string };
+const BUY_PAYTO = "0x20faAca5F980E29639A0FCC6dcA6988E18ed333B"; // buy gateway payTo (same on Celo + Celo Sepolia)
 const now = () => Math.floor(Date.now() / 1000);
 
 const app = new Hono<{ Bindings: Env }>().basePath("/api");
 
 const client = (e: Env) => createPublicClient({ transport: http(net(e.NETWORK).rpc) });
-const pub = (j: any) => { const { result, ...rest } = j; return rest; }; // never leak paid deliverable
+const pub = (j: any) => { const { result, ...rest } = j; return { ...rest, purchases: JSON.parse(rest.purchases || "[]") }; }; // never leak paid deliverable
 
 app.get("/config", (c) => {
   const n = net(c.env.NETWORK);
@@ -67,14 +68,24 @@ app.post("/jobs/:id/claim", async (c) => {
 
 app.post("/jobs/:id/deliver", async (c) => {
   const id = +c.req.param("id");
-  const { result, signature } = await c.req.json<any>();
+  const { result, signature, purchases } = await c.req.json<any>();
   const j = await c.env.DB.prepare("SELECT * FROM jobs WHERE id=?").bind(id).first<any>();
   if (!j || j.status !== "claimed") return c.json({ error: "job not claimed" }, 409);
   const text = String(result || "").slice(0, 20000);
   const sha = await sha256hex(text);
   if (!(await verifyMessage({ address: j.worker, message: deliverMsg(id, sha), signature }))) return c.json({ error: "bad worker signature" }, 401);
   const preview = text.slice(0, 160) + (text.length > 160 ? "…" : "");
-  await c.env.DB.prepare("UPDATE jobs SET status='delivered', result=?, result_sha=?, preview=?, updated_at=? WHERE id=?").bind(text, sha, preview, now(), id).run();
+  // Build with buy: verify each claimed purchase on-chain (stablecoin Transfer to the buy gateway's payTo).
+  const verified = [] as any[];
+  for (const p of (Array.isArray(purchases) ? purchases : []).slice(0, 5)) {
+    try {
+      const rc = await client(c.env).getTransactionReceipt({ hash: p.tx });
+      const logs = parseEventLogs({ abi: erc20Abi, logs: rc.logs, eventName: "Transfer" }) as any[];
+      const hit = logs.find((l) => l.args.to.toLowerCase() === BUY_PAYTO.toLowerCase());
+      verified.push({ ...p, payer: hit?.args.from ?? null, amount: hit ? String(hit.args.value) : p.amount, verified: !!hit });
+    } catch { verified.push({ ...p, verified: false }); }
+  }
+  await c.env.DB.prepare("UPDATE jobs SET status='delivered', result=?, result_sha=?, preview=?, purchases=?, updated_at=? WHERE id=?").bind(text, sha, preview, JSON.stringify(verified), now(), id).run();
   return c.json({ ok: true, sha256: sha });
 });
 

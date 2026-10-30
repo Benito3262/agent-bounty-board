@@ -1,3 +1,4 @@
+import { renderWithBoughtBrowser, type Purchase } from "./buy";
 // Job handlers run by worker agents. No paid LLM keys: deterministic, verifiable logic.
 const BLOCKSCOUT = "https://celo.blockscout.com/api";
 const TOKENS: Record<string, string> = {
@@ -49,17 +50,27 @@ export async function walletCheck(input: string) {
   };
 }
 
-/** Extractive summary of a web page (word-frequency sentence scoring). */
+/** Extractive summary of a web page (word-frequency sentence scoring).
+ *  The page is rendered in a browser the worker BUYS via the buy gateway (handles JS-heavy sites);
+ *  falls back to a plain fetch if the purchase fails. Purchases are returned for on-job proof. */
 export async function summarizeUrl(input: string) {
   const url = (input.match(/https?:\/\/\S+/) || [])[0];
   if (!url) throw new Error("input must contain a URL");
+  const purchases: Purchase[] = [];
+  let title = url, text = "", via = "plain fetch";
+  if (process.env.USE_BUY !== "0") {
+    try { const r = await renderWithBoughtBrowser(url); purchases.push(r.purchase); title = r.title || url; text = r.text.replace(/\s+/g, " ").trim(); via = "browser rented via buy (browser.sessions.create)"; }
+    catch (e: any) { console.error("buy browser failed, falling back:", e.message); }
+  }
+  if (!text) {
   const r = await fetch(url, { headers: { "user-agent": "AgentBountyBoard-Worker/0.1" } });
   const html = await r.text();
-  const title = (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]?.trim() || url;
-  const text = html
+  title = (html.match(/<title[^>]*>([^<]*)<\/title>/i) || [])[1]?.trim() || url;
+  text = html
     .replace(/<script[\s\S]*?<\/script>|<style[\s\S]*?<\/style>|<nav[\s\S]*?<\/nav>|<footer[\s\S]*?<\/footer>/gi, " ")
     .replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/&#39;|&rsquo;/g, "'").replace(/&quot;/g, '"')
     .replace(/\s+/g, " ").trim();
+  }
   const sentences = text.split(/(?<=[.!?])\s+/).filter((s) => s.length > 40 && s.length < 400 && !/[{}`<>\\]|=>|_jsx|function\s*\(/.test(s));
   const stop = new Set("the a an and or of to in on for with is are was were be by as at it this that from you your we our can will not have has more".split(" "));
   const freq: Record<string, number> = {};
@@ -71,7 +82,7 @@ export async function summarizeUrl(input: string) {
   const seen = new Set<string>();
   const top = scored.sort((a, b) => b.score - a.score).filter((x) => !seen.has(x.s) && seen.add(x.s)).slice(0, 5).sort((a, b) => a.i - b.i);
   const keywords = Object.entries(freq).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([w]) => w);
-  return { url, title, words: text.split(" ").length, keyPoints: top.map((x) => x.s), keywords, method: "extractive (no LLM)" };
+  return { url, title, words: text.split(" ").length, keyPoints: top.map((x) => x.s), keywords, method: "extractive (no LLM)", renderedVia: via, purchases };
 }
 
 export const HANDLERS: Record<string, (input: string) => Promise<unknown>> = {
