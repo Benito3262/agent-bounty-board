@@ -7,10 +7,10 @@ export type JobSpec = { id?: number; category: string; title: string; descriptio
 export type Deliverable = { markdown: string; purchases: Ctx["purchases"]; sources: Ctx["sources"]; log: string[]; llm: string | null };
 
 const SYS = "You are a meticulous freelance agent delivering paid work. Follow the poster's deliverable spec exactly. Use ONLY the evidence provided; cite sources as [n] using the numbered source list; if evidence is missing say so plainly instead of inventing facts. Output GitHub-flavoured Markdown.";
-const brief = (j: JobSpec) => `JOB TITLE: ${j.title}\nDESCRIPTION: ${j.description}\nDELIVERABLE SPEC: ${j.spec || "(none given — use good judgement)"}${j.feedback ? `\nPOSTER REJECTED THE LAST DELIVERY. THEIR FEEDBACK: ${j.feedback}\nFix this.` : ""}`;
+export const brief = (j: JobSpec) => `JOB TITLE: ${j.title}\nDESCRIPTION: ${j.description}\nDELIVERABLE SPEC: ${j.spec || "(none given — use good judgement)"}${j.feedback ? `\nPOSTER REJECTED THE LAST DELIVERY. THEIR FEEDBACK: ${j.feedback}\nFix this.` : ""}`;
 const srcList = (c: Ctx) => c.sources.map((s, i) => `[${i + 1}] ${s.title} — ${s.url}`).join("\n");
 
-async function finish(c: Ctx, j: JobSpec, evidence: string, fallback: string): Promise<Deliverable> {
+export async function finish(c: Ctx, j: JobSpec, evidence: string, fallback: string): Promise<Deliverable> {
   const out = await llm(SYS, `${brief(j)}\n\nSOURCES:\n${srcList(c)}\n\nEVIDENCE:\n${evidence.slice(0, 14000)}`);
   const tail = c.sources.length ? `\n\n---\n**Sources**\n${c.sources.map((s, i) => `${i + 1}. [${s.title}](${s.url})`).join("\n")}` : "";
   return { markdown: (out ?? `> ⚠️ Free LLM unavailable — delivering the structured evidence only.\n\n${fallback}`) + tail, purchases: c.purchases, sources: c.sources, log: c.log, llm: out ? LLM_NAME : null };

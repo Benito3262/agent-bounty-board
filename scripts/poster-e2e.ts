@@ -3,7 +3,7 @@ import { keccak256, toHex } from "viem";
 import { privateKeyToAccount } from "viem/accounts";
 import { x402Client, wrapFetchWithPayment, decodePaymentResponseHeader } from "@x402/fetch";
 import { ExactEvmScheme } from "@x402/evm/exact/client";
-import { N, API, publicClient, wallet, tx } from "../src/chain";
+import { N, API, publicClient, wallet, tx, gasOpts } from "../src/chain";
 import { reputationAbi } from "../src/abi";
 import { acceptBidMsg, rejectMsg } from "../src/config";
 import { readFileSync } from "node:fs";
@@ -50,7 +50,7 @@ if (settle?.transaction) await fetch(`${API}/jobs/${id}/paid`, { method: "POST",
 const score = BigInt(process.env.SCORE || "95");
 const w = wallet(process.env.POSTER_PK!);
 const fb = await w.writeContract({ address: N.reputationRegistry, abi: reputationAbi, functionName: "giveFeedback",
-  args: [BigInt(job.agent_id), score, 0, "bounty", type, `${API}/jobs/${id}/result`, `${API}/jobs/${id}`, keccak256(toHex(body.result || ""))] } as any);
+  args: [BigInt(job.agent_id), score, 0, "bounty", type, `${API}/jobs/${id}/result`, `${API}/jobs/${id}`, keccak256(toHex(body.result || ""))], ...(await gasOpts(w.account.address)) } as any);
 await publicClient.waitForTransactionReceipt({ hash: fb });
 console.log("ERC-8004 feedback:", tx(fb));
 console.log(await fetch(`${API}/jobs/${id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: fb }) }).then(j));

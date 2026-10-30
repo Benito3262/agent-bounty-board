@@ -25,8 +25,17 @@ export const NETWORKS = {
     token: { symbol: "USA₮", address: "0xD2ab3C9A02DBBAB236BfEC45D1d755DF4267F771", decimals: 6, extra: { name: "Tether America USD", version: "1" } },
     identityRegistry: "0x8004A169FB4a3325136EB29fA0ceB6D2e539a432",
     reputationRegistry: "0x8004BAa17C55a88189AE136b182e5fdA19dE9b63",
+    // USA₮ fee-currency adapter (registered in FeeCurrencyDirectory 0x15F3…6276): pay gas in USA₮ when the wallet has no CELO.
+    feeCurrency: "0x0357EE22278c922e1D36cFe6b899269b161880C4",
   },
 } as const;
+
+/** Where a user with an empty wallet gets free USA₮ + CELO on Celo mainnet (Self-verified, Google Cloud Web3 faucet). */
+export const MAINNET_FAUCET = "https://cloud.google.com/application/web3/faucet/celo/mainnet";
+export const TESTNET_FAUCET = "https://faucet.circle.com";
+/** Fee currency to use on a network (undefined → pay gas in CELO). */
+export const feeCurrencyFor = (n: { chainId: number } & Record<string, any>, celoBalance: bigint): `0x${string}` | undefined =>
+  n.chainId === 42220 && celoBalance === 0n && n.feeCurrency ? (n.feeCurrency as `0x${string}`) : undefined;
 
 export function net(n?: string) {
   return NETWORKS[(n === "mainnet" ? "mainnet" : "testnet") as Net];

@@ -1,6 +1,6 @@
 // Registers the worker's ERC-8004 identity (Identity Registry) and lists it on the board.
 import { decodeEventLog } from "viem";
-import { N, API, publicClient, wallet, tx } from "../src/chain";
+import { N, API, publicClient, wallet, tx, gasOpts } from "../src/chain";
 import { identityAbi } from "../src/abi";
 
 const w = wallet(process.env.WORKER_PK!);
@@ -14,7 +14,7 @@ const card = {
   supportedTrust: ["reputation"],
 };
 const uri = "data:application/json;base64," + Buffer.from(JSON.stringify(card)).toString("base64");
-const hash = await w.writeContract({ address: N.identityRegistry, abi: identityAbi, functionName: "register", args: [uri] } as any);
+const hash = await w.writeContract({ address: N.identityRegistry, abi: identityAbi, functionName: "register", args: [uri], ...(await gasOpts(w.account.address)) } as any); // tagged on mainnet; gas in USA₮ if no CELO
 const rc = await publicClient.waitForTransactionReceipt({ hash });
 const ev = rc.logs.map((l) => { try { return decodeEventLog({ abi: identityAbi, ...l }); } catch { return null; } }).find((e: any) => e?.eventName === "Transfer") as any;
 const agentId = String(ev.args.tokenId);

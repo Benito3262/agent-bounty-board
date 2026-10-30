@@ -4,11 +4,13 @@
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 const run = promisify(execFile);
+/** Sandbox (Celo Sepolia test funds) unless on mainnet. Mainnet always buys live; BUY_SANDBOX=1 can't force sandbox there. */
+export const buySandbox = (env = process.env) => env.NETWORK === "mainnet" ? false : env.BUY_SANDBOX !== "0";
 
 export type Purchase = { capability: string; provider?: string; tx: string; token: string; amount: string; usd: string; network: string };
 
 export async function buyCurl(url: string, body: unknown, maxAmount = "0.02") {
-  const sandbox = process.env.BUY_SANDBOX !== "0";
+  const sandbox = buySandbox();
   const args = ["buy", ...(sandbox ? ["--sandbox"] : []), ...(process.env.BUY_ACCOUNT ? ["--account", process.env.BUY_ACCOUNT] : []),
     ...(process.env.BUY_TOKEN ? ["--token", process.env.BUY_TOKEN] : []),
     "curl", url, "-X", "POST", "-H", "content-type: application/json", "-d", JSON.stringify(body), "--max-amount", maxAmount];

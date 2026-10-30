@@ -11,7 +11,8 @@
     "balances": "tsx scripts/balances.ts",
     "deploy": "npm run build:web && wrangler pages deploy public --project-name agent-bounty-board --branch main",
     "build:web": "esbuild web/app.ts --bundle --format=esm --minify --target=es2020 --outfile=public/app.js",
-    "mainnet:check": "tsx scripts/mainnet-check.ts"
+    "mainnet:check": "tsx scripts/mainnet-check.ts",
+    "go-mainnet": "tsx scripts/go-mainnet.ts"
   },
   "keywords": [],
   "author": "",

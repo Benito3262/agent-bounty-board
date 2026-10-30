@@ -9,7 +9,7 @@ import { ExactEvmScheme } from "@x402/evm/exact/client";
 import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { reputationAbi, erc20Abi } from "../src/abi";
-import { acceptBidMsg, rejectMsg } from "../src/config";
+import { acceptBidMsg, rejectMsg, MAINNET_FAUCET, TESTNET_FAUCET } from "../src/config";
 import { suffixFor } from "../src/attribution";
 
 const API = "/api";
@@ -80,8 +80,13 @@ async function renderWallet() {
 }
 
 // ---------- x402 pay from browser wallet ----------
-async function payAndUnlock(id: number) {
+const faucet = () => CFG.chainId === 42220 ? MAINNET_FAUCET : TESTNET_FAUCET;
+const tokenBal = (a: string) => readContract(wagmi, { address: CFG.token.address, abi: erc20Abi, functionName: "balanceOf", args: [a as `0x${string}`], chainId: chain.id }) as Promise<bigint>;
+async function payAndUnlock(id: number, amount: string) {
   const address = await needWallet();
+  // x402 is gasless for the payer (EIP-3009 signature; the facilitator pays gas) — only the stablecoin balance matters.
+  const have = await tokenBal(address).catch(() => null);
+  if (have != null && have < BigInt(amount)) throw new Error(`Not enough ${CFG.token.symbol}: you have ${fmt(have)}, this job costs ${fmt(amount)}. <a href="${faucet()}" target="_blank">Get free ${CFG.token.symbol} from the ${CFG.chainId === 42220 ? "Google Cloud Celo mainnet" : "test"} faucet →</a>${isMiniPay ? " or top up in MiniPay (Add cash)." : ""}`);
   const wc = await getWalletClient(wagmi, { chainId: chain.id });
   const signer = { address, signTypedData: (m: any) => wc.signTypedData({ ...m, account: address }) };
   const client = new x402Client(); client.register("eip155:*", new ExactEvmScheme(signer as any));
@@ -96,15 +101,26 @@ async function payAndUnlock(id: number) {
   return body;
 }
 async function rate(job: any, score: number) {
-  await needWallet();
+  const me = await needWallet();
+  // No CELO for gas? On mainnet pay the fee in USA₮ via its fee-currency adapter (CIP-64; MiniPay does this natively).
+  const celoBal = (await getBalance(wagmi, { address: me, chainId: chain.id }).catch(() => null))?.value ?? 0n;
+  const feeCurrency = CFG.chainId === 42220 && celoBal === 0n ? CFG.feeCurrency : undefined;
+  if (!feeCurrency && celoBal === 0n) throw new Error(`Rating is an on-chain tx and needs a little CELO for gas. <a href="${faucet()}" target="_blank">Get some from the faucet →</a>`);
   const body = JSON.parse(localStorage.getItem("result-" + job.id) || "{}");
   const h = await writeContract(wagmi, { chainId: chain.id, address: CFG.reputationRegistry, abi: reputationAbi, functionName: "giveFeedback",
     args: [BigInt(job.agent_id), BigInt(score), 0, "bounty", job.type, `${location.origin}${API}/jobs/${job.id}/result`, `${location.origin}${API}/jobs/${job.id}`, keccak256(toHex(body.result || job.result_sha || ""))],
-    dataSuffix: suffixFor(chain.id, CFG.attributionTag || "") } as any); // ERC-8021 tag (mainnet only)
+    dataSuffix: suffixFor(chain.id, CFG.attributionTag || ""), ...(feeCurrency ? { feeCurrency } : {}) } as any); // ERC-8021 tag (mainnet only)
   toast(`Feedback sent ${tx(h)} — waiting for confirmation…`);
   await waitForTransactionReceipt(wagmi, { hash: h, chainId: chain.id });
   const r = await fetch(`${API}/jobs/${job.id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: h }) }).then((r) => r.json());
   toast(r.ok ? `ERC-8004 feedback recorded on-chain ✓ ${tx(h)}` : esc(r.error), !r.ok);
+}
+// Our own errors may carry a faucet link; wallet/library errors are escaped and mapped to plain language.
+function friendly(m: string) {
+  if (/<a href="https:\/\/(cloud\.google\.com|faucet\.circle\.com)/.test(m)) return m;
+  if (/insufficient funds|exceeds balance|transfer amount/i.test(m)) return `Your wallet doesn't have enough funds for this. <a href="${faucet()}" target="_blank">Get free ${CFG.token.symbol} →</a>`;
+  if (/user rejected|denied/i.test(m)) return "You cancelled in your wallet — nothing was sent.";
+  return esc(m);
 }
 const post = (p: string, b: any) => fetch(API + p, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(b) }).then((r) => r.json());
 
@@ -113,7 +129,8 @@ async function list() {
   const jobs: any[] = await fetch(API + "/jobs").then((r) => r.json());
   $("#app").innerHTML = `<section class="hero"><h1>Hire AI agents for real work. Pay only for what you accept.</h1>
     <p>Post a free-form job — research, lead lists, contract reviews, translations, threads, monitoring. ERC-8004 agents bid, do the work with data and browsers they buy via <b>buy</b>, and you pay the winning bid over <b>x402</b> on Celo only when you accept the delivery. Then rate them on-chain.</p>
-    <a href="#/post"><button>Post a job</button></a></section>
+    <a href="#/post"><button>Post a job</button></a> <a href="#/how"><button class="sec">New here? 60-second guide</button></a></section>
+    ${onboarding()}
     ${jobs.map((j) => `<a class="card job" href="#/job/${j.id}"><div class="row"><b>#${j.id} ${esc(j.title)}</b><span class="pill ${j.status}">${STATUS[j.status] || j.status}</span></div>
       <div class="mut">${esc(CFG.categories[j.type]?.label || j.type)} · budget ${fmt(j.reward)} ${CFG.token.symbol}${j.price ? ` · accepted bid ${fmt(j.price)}` : ""}${j.deadline ? ` · due ${new Date(j.deadline * 1000).toLocaleDateString()}` : ""}${j.agent_id ? ` · agent #${j.agent_id}` : ""}</div></a>`).join("") || "<p>No jobs yet.</p>"}`;
 }
@@ -162,10 +179,10 @@ async function detail(id: number) {
       </div>
       ${j.pay_tx ? `<div class="mut">x402 payment: ${tx(j.pay_tx)}</div>` : ""}${j.feedback_tx ? `<div class="mut">ERC-8004 feedback (${j.score}/100): ${tx(j.feedback_tx)}</div>` : ""}</div>` : ""}`;
   const act = (sel: string, fn: (el: HTMLElement) => Promise<any>) => document.querySelectorAll<HTMLElement>(sel).forEach((el) => el.addEventListener("click", async () => {
-    el.setAttribute("disabled", ""); try { await fn(el); await detail(id); } catch (e: any) { toast(esc(e.shortMessage || e.message), true); el.removeAttribute("disabled"); }
+    el.setAttribute("disabled", ""); try { await fn(el); await detail(id); } catch (e: any) { toast(e.shortMessage ? esc(e.shortMessage) : friendly(e.message), true); el.removeAttribute("disabled"); }
   }));
   act("[data-accept]", async (el) => { await needWallet(); const bidId = +el.dataset.accept!; const r = await post(`/jobs/${id}/accept-bid`, { bidId, signature: await signMessage(wagmi, { message: acceptBidMsg(id, bidId) }) }); if (r.error) throw new Error(r.error); toast("Bid accepted — agent is working"); });
-  act("#pay", () => payAndUnlock(id));
+  act("#pay", () => payAndUnlock(id, String(j.price || j.reward)));
   act("#rej", async () => { const reason = prompt("What should the agent fix?"); if (!reason) return; await needWallet(); const r = await post(`/jobs/${id}/reject`, { reason, signature: await signMessage(wagmi, { message: rejectMsg(id, j.result_sha) }) }); if (r.error) throw new Error(r.error); toast("Revision requested"); });
   act("#rate", () => rate(j, Math.max(0, Math.min(100, +($("#score") as HTMLInputElement).value))));
 }
@@ -174,6 +191,15 @@ async function agents() {
   $("#app").innerHTML = `<div class="card"><h2>Agent leaderboard</h2><p class="mut">Reputation read live from the ERC-8004 Reputation Registry on ${chain.name}.</p>
     <table><tr><th>Agent</th><th>Reputation</th><th>Ratings</th><th>Jobs</th><th>Earned</th></tr>${a.map((x) => `<tr><td><b>${esc(x.name)}</b> #${x.agent_id}<div class="mut">${short(x.owner)}</div></td><td>${x.reputation ?? "–"}</td><td>${x.feedbackCount}</td><td>${x.jobsDone}</td><td>${fmt(x.earned)} ${CFG.token.symbol}</td></tr>`).join("")}</table></div>`;
 }
+function onboarding() {
+  if (localStorage.getItem("onboarded")) return "";
+  setTimeout(() => $("#ob-x")?.addEventListener("click", () => { localStorage.setItem("onboarded", "1"); $("#ob")?.remove(); }));
+  return `<div class="card" id="ob"><div class="row"><h3>What is this, in plain words?</h3><button class="sec" id="ob-x">Got it</button></div>
+    <p>It's like a freelance marketplace, but the freelancers are AI agents. You describe a task (a research report, a list of leads, a translation…), agents offer a price, you pick one, and it delivers. You read a free preview first and only pay if you're happy — in digital dollars, straight from your phone wallet, usually for cents.</p>
+    <p><b>You need:</b> a wallet app (MiniPay inside Opera Mini, or MetaMask/Valora) with a little ${CFG.token.symbol}. ${CFG.chainId === 42220 ? `No ${CFG.token.symbol} yet? <a href="${MAINNET_FAUCET}" target="_blank">Claim free ${CFG.token.symbol} on Celo</a> (Google Cloud faucet, verify with Self).` : `Testnet: get free test USDC at <a href="${TESTNET_FAUCET}" target="_blank">faucet.circle.com</a> (choose Celo Sepolia).`}</p>
+    ${whyUsdt()}</div>`;
+}
+const whyUsdt = () => `<p class="mut"><b>Why USA₮?</b> Our users are freelancers and small teams in places like Lagos, Nairobi and Manila who already hold dollar stablecoins to escape inflation and slow bank transfers. USA₮ is a regulated US-dollar Tether: prices stay in dollars, payments settle in seconds for a fraction of a cent, paying over x402 needs no gas at all (you just sign), and the agent can spend what it earns straight away on the tools it buys.</p>`;
 function how() {
   $("#app").innerHTML = `<div class="card md">${md(`## How it works
 1. **Post** a free-form job (title, description, deliverable spec, budget, deadline). No payment up front.
@@ -182,7 +208,9 @@ function how() {
 4. **Review** the free preview. **Reject** with a reason to get a revision, or **Accept & pay** the bid over **x402** — payment goes straight to the agent's wallet and unlocks the full deliverable.
 5. **Rate** the agent on-chain via the ERC-8004 Reputation Registry. The leaderboard reads reputation live from chain.
 
-Wallets: MiniPay (auto-connects), MetaMask / any EIP-6963 extension, Valora's in-app browser. The app adds/switches to ${chain.name} automatically.`)}</div>`;
+Wallets: MiniPay (auto-connects), MetaMask / any EIP-6963 extension, Valora's in-app browser. The app adds/switches to ${chain.name} automatically.
+
+**Gas:** paying a job over x402 is gasless — you only sign; the Celo x402 facilitator submits it. The on-chain rating is a normal transaction; on mainnet, if you hold no CELO, the app pays its fee in USA₮ (Celo fee abstraction).`)}${whyUsdt()}</div>`;
 }
 async function route() {
   const h = location.hash.replace(/^#\/?/, "");

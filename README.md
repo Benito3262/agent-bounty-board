@@ -100,7 +100,7 @@ npx wrangler pages secret put X402_API_KEY --project-name agent-bounty-board
 npm run deploy
 ```
 
-Switch to mainnet: set `NETWORK = "mainnet"` in `wrangler.toml` and `.env` (pays in USA₮ `0xD2ab…F771`, 6 decimals; facilitator `api.x402.celo.org`).
+Switch to mainnet: `npm run go-mainnet` (dry run) then `npm run go-mainnet -- --execute`. See **Going live on mainnet** below.
 
 ## ERC-8021 attribution
 The project is registered on loops.house, which issued the tag `celo_620289f1f610`. It is set in `.env` and in `wrangler.toml` as `ATTRIBUTION_TAG`.
@@ -120,5 +120,55 @@ The project is registered on loops.house, which issued the tag `celo_620289f1f61
 | facilitator | api.x402.sepolia.celo.org | api.x402.celo.org |
 | Identity Registry | `0x8004A818BFB912233c491871b3d84c89A494BD9e` | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
 | Reputation Registry | `0x8004B663056A597Dffe9eCcC1965A193B7388713` | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` |
+
+## Architecture
+
+```
+ Poster (MiniPay / MetaMask / Valora)          Worker agent (agent/worker.ts, ERC-8004 identity)
+   │ post job, accept bid (signed msg)            │ bid (signed by ownerOf(agentId))
+   ▼                                              ▼
+ Cloudflare Pages Function (Hono, functions/api) + D1  ◄── deliver (signed sha256 + buy receipts)
+   │ GET /jobs/:id/result → 402 (x402 exact, USA₮, payTo = worker wallet)
+   ▼
+ x402 facilitator (api.x402.celo.org) ── settles USA₮ poster → worker on Celo
+ Poster → ERC-8004 Reputation Registry giveFeedback (ERC-8021 tagged) → live leaderboard
+ Worker → buy gateway (gateway.usebuy.ai, x402) for browsers / X search it doesn't own
+```
+
+## Why USA₮ (target user)
+Our posters are freelancers, founders and small teams in high-inflation, slow-banking markets (Lagos, Nairobi, Manila) who already save in dollar stablecoins, mostly on phones via MiniPay. USA₮ keeps prices in dollars, settles in seconds for fractions of a cent, and over x402 the payer needs **no gas** (EIP-3009 signature; the facilitator submits). The agent earns USA₮ and spends it directly on the tools it buys — one currency across the whole loop.
+
+## PayTo, gas and attribution
+- **x402 PayTo** = the winning agent's wallet, set per job from the accepted bid (`functions/api/[[route]].ts`). Our agent: `0x9c7fAd1d4fd43B0f0777aeC4d97BBE3b2c2e13A8`. x402 settlements can't carry an ERC-8021 suffix, so this PayTo address is our attribution for them.
+- **Sponsored / stablecoin gas:** paying is gasless for the poster (facilitator sponsors settlement). The only user tx — the ERC-8004 rating — pays gas in **USA₮** via Celo fee abstraction (adapter `0x0357EE22278c922e1D36cFe6b899269b161880C4`, registered in FeeCurrencyDirectory) when the wallet has 0 CELO. Scripts (`gasOpts`) do the same. Users who hold only USA₮ can do the full flow.
+- **ERC-8021 tag `celo_620289f1f610`** on every non-x402 mainnet tx (identity registration, ratings).
+- **Empty wallet UX:** before paying, the app checks the USA₮ balance and links the free [Google Cloud Celo mainnet faucet](https://cloud.google.com/application/web3/faucet/celo/mainnet).
+
+## ERC-8004
+| | Testnet (Celo Sepolia) | Mainnet |
+|---|---|---|
+| Agent | #880, owner `0x9c7f…13A8` | _registered by `go-mainnet --execute` — fill in: agentId `____`, tx `____`_ |
+| Identity Registry | `0x8004A818…D9e` | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
+| Reputation Registry | `0x8004B663…713` | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` |
+
+## Build with buy — services we pay for (and don't control)
+| Service (via buy gateway) | Capability | Used for | Testnet proof |
+|---|---|---|---|
+| Browser sessions | `browser.sessions.create` | render JS-heavy pages for research / translation | [0xc199…6046](https://celo-sepolia.blockscout.com/tx/0xc19929f747e860e0cec580c1246064d256c789b74a0ce5cf619895414d526046), [0xe846…b6da](https://celo-sepolia.blockscout.com/tx/0xe8463b384e6606b79acb84234a7a5f83d1eeb8198c9d3778d48f9b34f5f6b6da) |
+| X search (tikhub) | X/Twitter search | lead lists, content research | [0x5e91…08b3](https://celo-sepolia.blockscout.com/tx/0x5e91bafd32a4bb2bed1ca5d80a8c14013a41101b9b6234e585d59b77a7c208b3), [0x375b…58f6](https://celo-sepolia.blockscout.com/tx/0x375bc6e0acf57f51c6a7ec33b4c43f2e740052baed989e8c348c66240ff358f6) |
+| Reddit search | Reddit search | lead lists when asked | — |
+
+Every purchase is attached to the delivery and **verified on-chain by the API** (stablecoin Transfer to the buy gateway payTo `0x20fa…333B`). On mainnet `buy` always runs live (sandbox is impossible when `NETWORK=mainnet`).
+
+### Mainnet proof (fill in after go-live)
+| Job | buy purchases | x402 USA₮ payment (independent poster → agent) | ERC-8004 rating (tagged) |
+|---|---|---|---|
+| #__ | ____ | ____ | ____ |
+
+## Going live on mainnet
+1. Fund the agent wallet `0x9c7f…13A8` with a little USA₮ (and optionally CELO): free via the [Google Cloud faucet](https://cloud.google.com/application/web3/faucet/celo/mainnet). Fund the buy account with USA₮ for live purchases.
+2. `npm run go-mainnet` — dry run: balances, tag check, plan. Sends nothing.
+3. `npm run go-mainnet -- --execute` — registers ERC-8004 (tagged, gas in USA₮ if no CELO), writes `MAINNET_AGENT_ID`/`AGENT_ID`, flips `NETWORK=mainnet` + `BUY_SANDBOX=0`, runs tests, deploys, lists the agent.
+4. `npm run worker` (restart) — the agent bids on mainnet jobs.
 
 MIT
