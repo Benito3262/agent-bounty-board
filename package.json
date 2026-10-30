@@ -1,0 +1,33 @@
+{
+  "name": "agent-bounty-board",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "worker": "tsx agent/worker.ts",
+    "register": "tsx scripts/register-agent.ts",
+    "e2e": "tsx scripts/poster-e2e.ts",
+    "balances": "tsx scripts/balances.ts",
+    "deploy": "wrangler pages deploy public --project-name agent-bounty-board --branch main"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@celo/attribution-tags": "^0.5.0",
+    "@hono/node-server": "^2.1.5",
+    "@x402/core": "^2.29.0",
+    "@x402/evm": "^2.29.0",
+    "@x402/fetch": "^2.29.0",
+    "@x402/hono": "^2.29.0",
+    "dotenv": "^18.0.9",
+    "hono": "^4.13.14",
+    "tsx": "^4.23.15",
+    "viem": "^2.57.13"
+  },
+  "devDependencies": {
+    "wrangler": "^4.156.0"
+  }
+}

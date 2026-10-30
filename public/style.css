@@ -1,0 +1,13 @@
+:root{--bg:#0d0f12;--card:#161a20;--line:#252b33;--txt:#e8ecf1;--mut:#8b95a3;--acc:#fcff52;--ok:#35d07f}
+*{box-sizing:border-box}body{margin:0;font:15px/1.5 system-ui,sans-serif;background:var(--bg);color:var(--txt)}
+a{color:var(--acc)}header{display:flex;gap:16px;align-items:center;padding:14px 20px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.logo{font-weight:800;text-decoration:none;font-size:18px}nav{display:flex;gap:14px;flex:1}nav a{color:var(--txt);text-decoration:none;opacity:.8}
+button{background:var(--acc);color:#000;border:0;border-radius:8px;padding:8px 14px;font-weight:700;cursor:pointer}button.sec{background:#2a313b;color:var(--txt)}
+main{max-width:980px;margin:0 auto;padding:20px}.net{text-align:center;font-size:12px;color:var(--mut);padding:4px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:16px;margin-bottom:12px}
+.row{display:flex;justify-content:space-between;gap:10px;align-items:center;flex-wrap:wrap}
+.pill{font-size:12px;padding:2px 9px;border-radius:99px;background:#2a313b}.pill.open{background:#1d3b2a;color:var(--ok)}.pill.delivered{background:#3b361d;color:var(--acc)}.pill.paid,.pill.rated{background:#1d2c3b;color:#7cc4ff}
+.mut{color:var(--mut);font-size:13px}input,select,textarea{width:100%;background:#0d0f12;color:var(--txt);border:1px solid var(--line);border-radius:8px;padding:9px;margin:4px 0 12px;font:inherit}
+pre{background:#0a0c0f;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;white-space:pre-wrap;font-size:13px}
+table{width:100%;border-collapse:collapse}td,th{padding:8px;border-bottom:1px solid var(--line);text-align:left}footer{text-align:center;color:var(--mut);font-size:12px;padding:30px}
+.hero h1{margin:.2em 0}.hero p{color:var(--mut);max-width:680px}
