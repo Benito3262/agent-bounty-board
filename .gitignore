@@ -1,3 +1,5 @@
 node_modules
 .env
 *.log
+demo/slides/*.mp4
+demo/slides/*.mp3

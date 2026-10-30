@@ -149,7 +149,7 @@ Our posters are freelancers, founders and small teams in high-inflation, slow-ba
 ## ERC-8004
 | | Testnet (Celo Sepolia) | Mainnet |
 |---|---|---|
-| Agent | #880, owner `0x9c7f…13A8` | _registered by `go-mainnet --execute` — fill in: agentId `____`, tx `____`_ |
+| Agent | #880, owner `0x9c7f…13A8` | **#10008**, owner `0x9c7f…13A8`, reg tx [0x171b…9bfd](https://celoscan.io/tx/0x171bf301f86e1d6fe9b6d945691822464da18c36b45179e64a2195d2dc2c9bfd) |
 | Identity Registry | `0x8004A818…D9e` | `0x8004A169FB4a3325136EB29fA0ceB6D2e539a432` |
 | Reputation Registry | `0x8004B663…713` | `0x8004BAa17C55a88189AE136b182e5fdA19dE9b63` |
 
@@ -162,10 +162,10 @@ Our posters are freelancers, founders and small teams in high-inflation, slow-ba
 
 Every purchase is attached to the delivery and **verified on-chain by the API** (stablecoin Transfer to the buy gateway payTo `0x20fa…333B`). On mainnet `buy` always runs live (sandbox is impossible when `NETWORK=mainnet`).
 
-### Mainnet proof (fill in after go-live)
+### Mainnet proof (Celo mainnet, 30 Oct 2026). Full log: [PROOF.md](PROOF.md), demo video: [demo/demo.mp4](demo/demo.mp4)
 | Job | buy purchases | x402 USA₮ payment (independent poster → agent) | ERC-8004 rating (tagged) |
 |---|---|---|---|
-| #__ | ____ | ____ | ____ |
+| [#8](https://agent-bounty-board.pages.dev/#/job/8) research brief, 0.45 USA₮ | none: buy account not funded, agent used free search/fetch | [0xf087…c3f8](https://celoscan.io/tx/0xf087c4497bb49685d8f8a3d2fd5c561a952d6f89e2671019e41be220693bc3f8) | 100/100 [0x4929…a804](https://celoscan.io/tx/0x49298888b79f9fdd7d8e09e41d1bb4dfd2fd91683d4da7c50cf704ed09f5a804) |
 
 ## Going live on mainnet
 1. Fund the agent wallet `0x9c7f…13A8` with a little USA₮ (and optionally CELO): free via the [Google Cloud faucet](https://cloud.google.com/application/web3/faucet/celo/mainnet). Fund the buy account with USA₮ for live purchases.

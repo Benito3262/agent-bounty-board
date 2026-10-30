@@ -1,0 +1,26 @@
+[
+ {
+  "step": "1a",
+  "desc": "Approve 1.0 USD₮ to Uniswap V3 SwapRouter02",
+  "hash": "0xbf9624ce23f9ef522a1eb9e41fba61700488d8d7f1bc1bbf44ee065db2f00b98",
+  "from": "0x9c7fad1d4fd43b0f0777aec4d97bbe3b2c2e13a8"
+ },
+ {
+  "step": "1b",
+  "desc": "Swap 1.0 USD₮ → USA₮ on Uniswap V3 (0.01% pool), minOut 0.994955",
+  "hash": "0x085db35c4fdb612699d6d41ec225903c6c57af1f98b71130074c0409c1cb9ef5",
+  "from": "0x9c7fad1d4fd43b0f0777aec4d97bbe3b2c2e13a8"
+ },
+ {
+  "step": "2a",
+  "desc": "Send 0.30 USD₮ (gas) agent → poster",
+  "hash": "0x7a3332405098ad3850b738b8dc0bc0dc540cecac321a6f3529f98cdbbef5f591",
+  "from": "0x9c7fad1d4fd43b0f0777aec4d97bbe3b2c2e13a8"
+ },
+ {
+  "step": "2b",
+  "desc": "Send 0.90 USA₮ (job payment) agent → poster",
+  "hash": "0xec33b40ff573582e46378da1a960a634f396c3ceb9c4d9f71ea881d49c76d2dc",
+  "from": "0x9c7fad1d4fd43b0f0777aec4d97bbe3b2c2e13a8"
+ }
+]
