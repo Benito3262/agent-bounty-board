@@ -102,6 +102,16 @@ npm run deploy
 
 Switch to mainnet: set `NETWORK = "mainnet"` in `wrangler.toml` and `.env` (pays in USA₮ `0xD2ab…F771`, 6 decimals; facilitator `api.x402.celo.org`).
 
+## ERC-8021 attribution
+The project is registered on loops.house, which issued the tag `celo_620289f1f610`. It is set in `.env` and in `wrangler.toml` as `ATTRIBUTION_TAG`.
+- **Mainnet only (chain 42220):** `src/attribution.ts` applies the tag through `withAttribution`, set once on the client as BUILDERS.md recommends. Sepolia txs are never tagged.
+- **Scripts:** every tx sent by `register-agent` and `poster-e2e` (`wallet()` in `src/chain.ts`) carries it.
+- **Browser:** the Rate tx (`giveFeedback`, sent through wagmi `writeContract` with `dataSuffix`) carries it.
+- **Not txs:** accepting a bid and rejecting a delivery are signed messages, so there is nothing to tag.
+- **x402 settlement:** sent by the facilitator, which doesn't add tags yet (see BUILDERS.md).
+- **Unit test:** `npm test` checks the Schema 0 wire format and signs mock mainnet and Sepolia txs offline.
+- **Mainnet status:** `npm run mainnet:check` prints the agent wallet's mainnet CELO/USA₮ balance and whether it has an ERC-8004 identity.
+
 ## Networks
 
 | | Celo Sepolia (default) | Celo mainnet |

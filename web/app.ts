@@ -10,6 +10,7 @@ import { marked } from "marked";
 import DOMPurify from "dompurify";
 import { reputationAbi, erc20Abi } from "../src/abi";
 import { acceptBidMsg, rejectMsg } from "../src/config";
+import { suffixFor } from "../src/attribution";
 
 const API = "/api";
 const $ = (s: string) => document.querySelector(s) as HTMLElement;
@@ -98,7 +99,8 @@ async function rate(job: any, score: number) {
   await needWallet();
   const body = JSON.parse(localStorage.getItem("result-" + job.id) || "{}");
   const h = await writeContract(wagmi, { chainId: chain.id, address: CFG.reputationRegistry, abi: reputationAbi, functionName: "giveFeedback",
-    args: [BigInt(job.agent_id), BigInt(score), 0, "bounty", job.type, `${location.origin}${API}/jobs/${job.id}/result`, `${location.origin}${API}/jobs/${job.id}`, keccak256(toHex(body.result || job.result_sha || ""))] } as any);
+    args: [BigInt(job.agent_id), BigInt(score), 0, "bounty", job.type, `${location.origin}${API}/jobs/${job.id}/result`, `${location.origin}${API}/jobs/${job.id}`, keccak256(toHex(body.result || job.result_sha || ""))],
+    dataSuffix: suffixFor(chain.id, CFG.attributionTag || "") } as any); // ERC-8021 tag (mainnet only)
   toast(`Feedback sent ${tx(h)} — waiting for confirmation…`);
   await waitForTransactionReceipt(wagmi, { hash: h, chainId: chain.id });
   const r = await fetch(`${API}/jobs/${job.id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: h }) }).then((r) => r.json());

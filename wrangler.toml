@@ -6,7 +6,7 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 NETWORK = "testnet"
 # ERC-8021 Celo attribution tag — set once loops.house issues it for the project
-ATTRIBUTION_TAG = ""
+ATTRIBUTION_TAG = "celo_620289f1f610"
 
 [[d1_databases]]
 binding = "DB"
