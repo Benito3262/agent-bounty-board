@@ -4,7 +4,7 @@ compatibility_date = "2026-10-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-NETWORK = "testnet"
+NETWORK = "mainnet"
 # ERC-8021 Celo attribution tag — set once loops.house issues it for the project
 ATTRIBUTION_TAG = "celo_620289f1f610"
 
