@@ -100,6 +100,8 @@ async function renderWallet() {
 
 // ---------- payments ----------
 const tokenBal = (a: string) => readContract(wagmi, { address: CFG.token.address, abi: erc20Abi, functionName: "balanceOf", args: [a as `0x${string}`], chainId: chain.id }) as Promise<bigint>;
+/** Re-read the header balance after a payment/tx (RPC can lag a block or two). */
+const refreshBal = () => { renderWallet(); [2000, 6000, 12000].forEach((ms) => setTimeout(renderWallet, ms)); };
 async function payAndUnlock(id: number, amount: string) {
   const address = await needWallet();
   const have = await tokenBal(address).catch(() => null); // x402 is gasless for the payer: only the stablecoin balance matters
@@ -115,6 +117,7 @@ async function payAndUnlock(id: number, amount: string) {
   if (settle?.transaction) await fetch(`${API}/jobs/${id}/paid`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: settle.transaction }) });
   localStorage.setItem("result-" + id, JSON.stringify(body));
   toast(`Paid ✓ ${settle?.transaction ? tx(settle.transaction, "receipt") : ""}`);
+  refreshBal();
   return body;
 }
 async function rate(job: any, score: number) {
@@ -128,6 +131,7 @@ async function rate(job: any, score: number) {
     dataSuffix: suffixFor(chain.id, CFG.attributionTag || ""), ...(feeCurrency ? { feeCurrency } : {}) } as any); // ERC-8021 tag (mainnet only)
   toast("Saving your rating…");
   await waitForTransactionReceipt(wagmi, { hash: h, chainId: chain.id });
+  refreshBal();
   const r = await fetch(`${API}/jobs/${job.id}/feedback`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ tx: h }) }).then((r) => r.json());
   toast(r.ok ? `Thanks — rating saved on-chain ✓ ${tx(h, "view")}` : esc(r.error), !r.ok);
 }

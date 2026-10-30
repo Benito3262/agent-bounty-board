@@ -6,14 +6,22 @@ import { newCtx, webSearch, readPage, xSearch, redditSearch, bsApi, bsV2, defill
 export type JobSpec = { id?: number; category: string; title: string; description: string; spec?: string; feedback?: string | null; network?: string };
 export type Deliverable = { markdown: string; purchases: Ctx["purchases"]; sources: Ctx["sources"]; log: string[]; llm: string | null };
 
-const SYS = "You are a meticulous freelance agent delivering paid work. Follow the poster's deliverable spec exactly. Use ONLY the evidence provided; cite sources as [n] using the numbered source list; if evidence is missing say so plainly instead of inventing facts. Output GitHub-flavoured Markdown.";
+const SYS = "You are a meticulous freelance agent delivering paid work. Follow the poster's deliverable spec exactly. Use ONLY the evidence provided; cite sources as [n] using the numbered source list; if evidence is missing say so plainly instead of inventing facts. Output GitHub-flavoured Markdown. Do NOT start with the job title as a heading (it is added for you). Celo token glossary — use these exact names: USD₮ = Tether USD on Celo (0x4806…5e); USA₮ = Tether's US-regulated dollar token on Celo (0xD2ab…71); USDC = Circle USD; cUSD = Mento Celo Dollar (now also called USDm). Never call USD₮ or USA₮ \"Celo-USD\" and never write USDₜ/USAₜ.";
 export const brief = (j: JobSpec) => `JOB TITLE: ${j.title}\nDESCRIPTION: ${j.description}\nDELIVERABLE SPEC: ${j.spec || "(none given — use good judgement)"}${j.feedback ? `\nPOSTER REJECTED THE LAST DELIVERY. THEIR FEEDBACK: ${j.feedback}\nFix this.` : ""}`;
 const srcList = (c: Ctx) => c.sources.map((s, i) => `[${i + 1}] ${s.title} — ${s.url}`).join("\n");
+
+/** Drop a leading heading that just repeats the job title (worker already prepends "# title"). */
+export function stripTitle(md: string, title: string) {
+  const norm = (x: string) => x.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+  const m = md.match(/^\s*#{1,3}\s+(.+)\n+/);
+  return m && norm(m[1]) === norm(title) ? md.slice(m[0].length) : md;
+}
 
 export async function finish(c: Ctx, j: JobSpec, evidence: string, fallback: string): Promise<Deliverable> {
   const out = await llm(SYS, `${brief(j)}\n\nSOURCES:\n${srcList(c)}\n\nEVIDENCE:\n${evidence.slice(0, 14000)}`);
   const tail = c.sources.length ? `\n\n---\n**Sources**\n${c.sources.map((s, i) => `${i + 1}. [${s.title}](${s.url})`).join("\n")}` : "";
-  return { markdown: (out ?? `> ⚠️ Free LLM unavailable — delivering the structured evidence only.\n\n${fallback}`) + tail, purchases: c.purchases, sources: c.sources, log: c.log, llm: out ? LLM_NAME : null };
+  const body = out ? stripTitle(out, j.title) : null;
+  return { markdown: (body ?? `> ⚠️ Free LLM unavailable — delivering the structured evidence only.\n\n${fallback}`) + tail, purchases: c.purchases, sources: c.sources, log: c.log, llm: body ? LLM_NAME : null };
 }
 
 async function queries(j: JobSpec, n: number, what = "web search queries") {
@@ -91,7 +99,7 @@ async function translate(j: JobSpec) {
   const url = (j.description.match(/https?:\/\/\S+/) || [])[0];
   if (url) { const p = await readPage(c, url, true, 12000); c.sources.push({ title: p.title, url }); text = p.text; }
   const out = await llm("You are a professional translator and localiser for Latin American and Nigerian audiences. Keep formatting, product names and numbers. Output only the translation in Markdown, then a short 'Translator notes' section.", `${brief(j)}\n\nTEXT TO TRANSLATE:\n${text}`);
-  return { markdown: out ?? "> ⚠️ Free LLM unavailable — cannot translate without it.", purchases: c.purchases, sources: c.sources, log: c.log, llm: out ? LLM_NAME : null };
+  return { markdown: out ?? "> ⚠️ Free LLM unavailable — cannot translate without it.", purchases: c.purchases, sources: c.sources, log: c.log, llm: body ? LLM_NAME : null };
 }
 
 /** Content/thread writing grounded in what is being said on X right now (bought via buy). */

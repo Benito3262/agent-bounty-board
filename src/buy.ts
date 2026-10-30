@@ -12,8 +12,7 @@ export type Purchase = { capability: string; provider?: string; tx: string; toke
 export async function buyCurl(url: string, body: unknown, maxAmount = "0.02") {
   const sandbox = buySandbox();
   const args = ["buy", ...(sandbox ? ["--sandbox"] : []), ...(process.env.BUY_ACCOUNT ? ["--account", process.env.BUY_ACCOUNT] : []),
-    ...(process.env.BUY_TOKEN ? ["--token", process.env.BUY_TOKEN] : []),
-    "curl", url, "-X", "POST", "-H", "content-type: application/json", "-d", JSON.stringify(body), "--max-amount", maxAmount];
+    "curl", ...(process.env.BUY_TOKEN ? ["--token", process.env.BUY_TOKEN] : []), url, "-X", "POST", "-H", "content-type: application/json", "-d", JSON.stringify(body), "--max-amount", maxAmount];
   const { stdout } = await run("npx", args, { maxBuffer: 10 * 1024 * 1024, timeout: 180_000 });
   const lines = stdout.trim().split("\n").filter(Boolean);
   const res = JSON.parse(lines[lines.length - 1]);
